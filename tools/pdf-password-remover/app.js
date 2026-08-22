@@ -85,7 +85,7 @@ function onWorkerMessage(e) {
   if (pending && !pending.viaForm) {
     showPasswordForm(false);
   } else {
-    showMsg("error", "Incorrect password — or the file is damaged. Please double-check and try again.");
+    showMsg("error", "Incorrect password, or the file is damaged. Double-check and try again.");
     pwInput.focus();
     pwInput.select();
   }
