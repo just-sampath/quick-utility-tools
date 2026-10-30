@@ -1,4 +1,12 @@
-import { initTheme, formatBytes } from "../../assets/js/common.js";
+import {
+  initTheme,
+  formatBytes,
+  createJobRunner,
+  createStatus,
+  downloadName,
+  bindDropzone,
+  looksLikePdf,
+} from "../../assets/js/common.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -18,52 +26,24 @@ const statAfter = document.getElementById("statAfter");
 const downloadBtn = document.getElementById("downloadBtn");
 const anotherBtn = document.getElementById("anotherBtn");
 
-let worker = null;
-let jobId = 0;
+const runner = createJobRunner("./decrypt-worker.js");
+const { showMsg, hideMsg } = createStatus(msg);
+
 let bytes = null;
 let url = null;
 let currentName = "";
 
-const ICONS = {
-  spinner: '<span class="spinner" aria-hidden="true"></span>',
-  error:
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>',
-  info: "",
-};
-
-function showMsg(kind, text, withSpinner = false) {
-  msg.className = "msg msg-" + kind;
-  msg.innerHTML = (withSpinner ? ICONS.spinner : ICONS[kind] || "") + "<span></span>";
-  msg.lastElementChild.textContent = text;
-  msg.hidden = false;
-}
-
-function hideMsg() {
-  msg.hidden = true;
-  msg.innerHTML = "";
-}
-
-function getWorker() {
-  if (!worker) {
-    worker = new Worker("./decrypt-worker.js");
-    worker.onmessage = onWorkerMessage;
-    worker.onerror = () => {
-      busy(false);
-      showMsg("error", "The PDF engine crashed unexpectedly. Reload the page and try again.");
-    };
-  }
-  return worker;
-}
-
-function decrypt(password) {
+async function decrypt(password) {
   busy(true);
   showMsg("info", password ? "Unlocking…" : "Checking your PDF…", true);
-  getWorker().postMessage({ id: ++jobId, bytes, password });
-}
-
-function onWorkerMessage(e) {
-  const r = e.data;
-  if (r.id !== jobId) return;
+  let r;
+  try {
+    r = await runner.run({ bytes, password });
+  } catch {
+    busy(false);
+    showMsg("error", "The PDF engine crashed unexpectedly. Reload the page and try again.");
+    return;
+  }
   busy(false);
   if (r.ok) {
     finish(r.bytes);
@@ -86,9 +66,8 @@ function finish(outBytes) {
   if (url) URL.revokeObjectURL(url);
   const blob = new Blob([outBytes], { type: "application/pdf" });
   url = URL.createObjectURL(blob);
-  const base = currentName.replace(/\.pdf$/i, "");
   downloadBtn.href = url;
-  downloadBtn.download = base + "_decrypted.pdf";
+  downloadBtn.download = downloadName(currentName, "_decrypted", "pdf");
   statBefore.textContent = formatBytes(bytes.byteLength);
   statAfter.textContent = formatBytes(outBytes.byteLength);
   hideMsg();
@@ -119,8 +98,7 @@ function pickFile(file) {
     resetFile();
     bytes = buf;
     currentName = file.name;
-    const head = new TextDecoder().decode(new Uint8Array(buf.slice(0, 1024)));
-    if (!head.includes("%PDF-")) {
+    if (!looksLikePdf(buf)) {
       bytes = null;
       showMsg("error", "This file doesn't contain valid PDF data.");
       return;
@@ -134,7 +112,7 @@ function pickFile(file) {
 }
 
 function resetFile() {
-  jobId++;
+  runner.cancel();
   busy(false);
   bytes = null;
   currentName = "";
@@ -148,23 +126,7 @@ function resetFile() {
   }
 }
 
-dz.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  dz.classList.add("dragover");
-});
-dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
-dz.addEventListener("drop", (e) => {
-  e.preventDefault();
-  dz.classList.remove("dragover");
-  pickFile(e.dataTransfer.files[0]);
-});
-window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", (e) => e.preventDefault());
-
-fileInput.addEventListener("change", () => {
-  pickFile(fileInput.files[0]);
-  fileInput.value = "";
-});
+bindDropzone(dz, fileInput, (files) => pickFile(files[0]));
 
 clearBtn.addEventListener("click", () => {
   resetFile();
