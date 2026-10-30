@@ -21,15 +21,16 @@ There is NO build step and NO package.json. This is deliberate. Vanilla HTML/CSS
 ```
 index.html                          home page: hero + tool card grid
 assets/css/style.css                entire shared design system (CSS custom properties)
-assets/js/common.js                 shared helpers (theme toggle)
+assets/js/common.js                 shared ES module helpers (initTheme, formatBytes)
+assets/js/qpdf.js                   shared qpdf-wasm loader for workers (classic script, loaded via importScripts)
 tools/<tool-name>/                  one folder per tool, self-contained:
   index.html                        tool page
   app.js                            UI wiring (ES module)
   decrypt-worker.js                 optional Web Worker for heavy processing
 ```
 
-- PDF decryption uses qpdf compiled to WASM (`@neslinesli93/qpdf-wasm@0.3.0`) loaded from jsDelivr inside a Web Worker so the main thread never blocks.
-- The version pin appears in TWO places in `decrypt-worker.js`: the `importScripts` URL and the `locateFile` callback. Update both together.
+- PDF processing uses qpdf compiled to WASM (`@neslinesli93/qpdf-wasm@0.3.0`) loaded from jsDelivr inside a Web Worker so the main thread never blocks. Any PDF tool's worker does `importScripts("../../assets/js/qpdf.js")` and calls `runQpdf(bytes, options)`, which resets MEMFS, appends `/in.pdf /out.pdf` to the options, and returns `{ code, out }` (`out` is null unless code is 0).
+- The version pin lives only in `QPDF_BASE` in `assets/js/qpdf.js`.
 - The worker is created lazily, so home page visitors never download the ~2 MB WASM binary.
 - Theme system: `<html data-theme>` attribute set by an inline snippet in each page's `<head>` (prevents flash), toggled via button, persisted in `localStorage.theme`. Auto dark/light respects `prefers-color-scheme` when no stored preference exists.
 
@@ -38,8 +39,19 @@ tools/<tool-name>/                  one folder per tool, self-contained:
 - Mobile-first CSS. Fluid sizing with `clamp()`. Breakpoints at 640px and 1024px only.
 - Touch targets minimum 44px. Inputs use 16px font-size (prevents iOS zoom-on-focus). Use `dvh`, not `vh`.
 - Hover effects must be wrapped in `@media (hover: hover)`.
+- Show/hide elements with the `hidden` attribute, never with `.visible`-style classes. Components set their real `display` and rely on the global `[hidden]` rule.
+- Worker messages carry a job `id`; the UI drops replies whose `id` isn't the current job, so a reply for a removed file can't land on the next one.
 - All colors/spacing go through the CSS custom properties at the top of `style.css`. Both themes must be updated together.
 - No code comments except deliberate simplification markers.
+
+## Content Security Policy
+
+Every page has a `<meta http-equiv="Content-Security-Policy">` right after the viewport meta. It starts from `default-src 'none'`, so the page itself cannot send data anywhere. That is what backs the privacy promise in the browser.
+
+- Inline scripts are allowed by `sha256-` hash. Changing a single character (even whitespace) of an inline `<script>` breaks it; recompute the hash: sha256 over the exact text between `<script>` and `</script>` with LF line endings, base64-encoded. The theme snippet hash is `sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=` while the snippet is copied unchanged.
+- Pages that start a qpdf worker also allow `https://cdn.jsdelivr.net` in `script-src`/`connect-src`, plus `'wasm-unsafe-eval'` and `worker-src 'self'`. Browsers that apply the page policy to the worker need these; pages without a worker must not list them.
+- A meta CSP does not cover a same-origin worker in browsers that follow CSP3 (the worker would need its own response header, which GitHub Pages can't set). Keep worker code to the engine call and posting results back.
+- No `style="..."` attributes or inline `<style>`: `style-src` is `'self'` only.
 
 ## Gotchas learned the hard way
 
@@ -51,7 +63,7 @@ tools/<tool-name>/                  one folder per tool, self-contained:
 
 ## Adding a new tool
 
-1. Create `tools/<tool-name>/index.html` copying the existing tool page structure (header, footer, theme snippet, panel layout).
+1. Create `tools/<tool-name>/index.html` copying the existing tool page structure (CSP meta, header, footer, theme snippet, panel layout). Trim the CSP if the tool has no qpdf worker.
 2. Add `app.js`; add a worker file only if processing can block the main thread.
 3. Reuse `assets/css/style.css` classes — add new component styles there, not inline.
 4. Add a card to the grid in the root `index.html`. Unbuilt tools get class `card-soon` plus badge `badge-soon`.

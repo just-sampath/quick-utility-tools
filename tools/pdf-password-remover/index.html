@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; img-src data:; worker-src 'self'; connect-src https://cdn.jsdelivr.net; base-uri 'none'; form-action 'none'">
   <meta name="description" content="Remove passwords from PDF files right in your browser, without quality loss. Text stays selectable and images untouched. Nothing is uploaded.">
   <title>PDF Password Remover | Quick Utility Tools</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
@@ -49,7 +50,7 @@
         <button class="link-btn" id="clearBtn" type="button">Remove</button>
       </div>
 
-      <form class="password-block" id="passwordBlock">
+      <form class="password-block" id="passwordBlock" hidden>
         <label for="passwordInput">This PDF requires a password to open</label>
         <div class="password-row">
           <input type="password" id="passwordInput" autocomplete="off" placeholder="Enter password">
@@ -57,9 +58,9 @@
         </div>
       </form>
 
-      <div class="msg" id="msg" role="status" aria-live="polite"></div>
+      <div class="msg" id="msg" role="status" aria-live="polite" hidden></div>
 
-      <div class="result" id="result">
+      <div class="result" id="result" hidden>
         <h2>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
           Decrypted copy ready

@@ -1,4 +1,4 @@
-import { initTheme } from "../../assets/js/common.js";
+import { initTheme, formatBytes } from "../../assets/js/common.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -19,6 +19,7 @@ const downloadBtn = document.getElementById("downloadBtn");
 const anotherBtn = document.getElementById("anotherBtn");
 
 let worker = null;
+let jobId = 0;
 let bytes = null;
 let url = null;
 let currentName = "";
@@ -30,21 +31,15 @@ const ICONS = {
   info: "",
 };
 
-function fmt(n) {
-  if (n < 1024) return n + " B";
-  if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
-  if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
-  return (n / 1073741824).toFixed(2) + " GB";
-}
-
 function showMsg(kind, text, withSpinner = false) {
-  msg.className = "msg visible msg-" + kind;
+  msg.className = "msg msg-" + kind;
   msg.innerHTML = (withSpinner ? ICONS.spinner : ICONS[kind] || "") + "<span></span>";
   msg.lastElementChild.textContent = text;
+  msg.hidden = false;
 }
 
 function hideMsg() {
-  msg.className = "msg";
+  msg.hidden = true;
   msg.innerHTML = "";
 }
 
@@ -60,19 +55,15 @@ function getWorker() {
   return worker;
 }
 
-let pending = null;
-
-function decrypt(password, viaForm) {
+function decrypt(password) {
   busy(true);
-  hideMsg();
-  if (!viaForm) showMsg("info", "Checking your PDF…", true);
-  else showMsg("info", "Unlocking…", true);
-  pending = { password, viaForm };
-  getWorker().postMessage({ bytes, password });
+  showMsg("info", password ? "Unlocking…" : "Checking your PDF…", true);
+  getWorker().postMessage({ id: ++jobId, bytes, password });
 }
 
 function onWorkerMessage(e) {
   const r = e.data;
+  if (r.id !== jobId) return;
   busy(false);
   if (r.ok) {
     finish(r.bytes);
@@ -82,8 +73,8 @@ function onWorkerMessage(e) {
     showMsg("error", "Failed to load the PDF engine. Check your connection and reload the page.");
     return;
   }
-  if (pending && !pending.viaForm) {
-    showPasswordForm(false);
+  if (r.needsPassword) {
+    showPasswordForm();
   } else {
     showMsg("error", "Incorrect password, or the file is damaged. Double-check and try again.");
     pwInput.focus();
@@ -98,17 +89,17 @@ function finish(outBytes) {
   const base = currentName.replace(/\.pdf$/i, "");
   downloadBtn.href = url;
   downloadBtn.download = base + "_decrypted.pdf";
-  statBefore.textContent = fmt(bytes.byteLength);
-  statAfter.textContent = fmt(outBytes.byteLength);
+  statBefore.textContent = formatBytes(bytes.byteLength);
+  statAfter.textContent = formatBytes(outBytes.byteLength);
   hideMsg();
-  pwBlock.classList.remove("visible");
-  result.classList.add("visible");
+  pwBlock.hidden = true;
+  result.hidden = false;
   result.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function showPasswordForm() {
   hideMsg();
-  pwBlock.classList.add("visible");
+  pwBlock.hidden = false;
   pwInput.focus();
 }
 
@@ -135,20 +126,22 @@ function pickFile(file) {
       return;
     }
     fileName.textContent = file.name;
-    fileSize.textContent = fmt(file.size);
+    fileSize.textContent = formatBytes(file.size);
     dz.hidden = true;
     fileRow.hidden = false;
-    decrypt("", false);
+    decrypt("");
   });
 }
 
 function resetFile() {
+  jobId++;
+  busy(false);
   bytes = null;
   currentName = "";
   hideMsg();
   pwInput.value = "";
-  pwBlock.classList.remove("visible");
-  result.classList.remove("visible");
+  pwBlock.hidden = true;
+  result.hidden = true;
   if (url) {
     URL.revokeObjectURL(url);
     url = null;
@@ -183,7 +176,7 @@ pwBlock.addEventListener("submit", (e) => {
   e.preventDefault();
   const pw = pwInput.value;
   if (!pw || !bytes) return;
-  decrypt(pw, true);
+  decrypt(pw);
 });
 
 anotherBtn.addEventListener("click", () => {

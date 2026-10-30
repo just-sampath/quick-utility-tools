@@ -1,5 +1,3 @@
-/* Quick Utility Tools — shared design system */
-
 :root {
   --bg: #f5f6f9;
   --surface: #ffffff;
@@ -92,7 +90,6 @@ a {
   border-radius: 6px;
 }
 
-/* Header */
 .site-header {
   position: sticky;
   top: 0;
@@ -128,21 +125,6 @@ a {
   flex-shrink: 0;
 }
 
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  text-decoration: none;
-  font-weight: 500;
-  min-height: 44px;
-}
-
-.back-link:hover {
-  color: var(--text);
-}
-
-/* Theme toggle */
 .theme-toggle {
   display: grid;
   place-items: center;
@@ -160,7 +142,6 @@ a {
   display: none;
 }
 
-/* Buttons */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -207,7 +188,6 @@ a {
   }
 }
 
-/* Hero */
 .hero {
   padding-block: clamp(40px, 7vh, 72px) clamp(24px, 4vh, 40px);
   text-align: center;
@@ -243,7 +223,6 @@ a {
   color: var(--success);
 }
 
-/* Tool grid */
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -275,6 +254,16 @@ a {
   font-size: 1.05em;
 }
 
+.card-head {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.card-head h3 {
+  margin: 0;
+}
+
 .card p {
   margin: 0;
   color: var(--muted);
@@ -304,7 +293,6 @@ a {
   pointer-events: none;
 }
 
-/* Tool page layout */
 .tool-main {
   flex: 1;
   padding-block: clamp(24px, 5vh, 48px) 64px;
@@ -334,7 +322,6 @@ a {
   gap: 16px;
 }
 
-/* Dropzone */
 .dropzone {
   display: flex;
   flex-direction: column;
@@ -379,7 +366,6 @@ a {
   white-space: nowrap;
 }
 
-/* Selected file chip */
 .file-row {
   display: flex;
   align-items: center;
@@ -424,19 +410,14 @@ a {
   flex-shrink: 0;
 }
 
-/* Password block */
 .password-block {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
-}
-
-.password-block.visible {
-  display: flex;
 }
 
 .password-block label {
@@ -449,8 +430,7 @@ a {
   gap: 10px;
 }
 
-input[type="password"],
-input[type="text"] {
+input[type="password"] {
   flex: 1;
   min-width: 0;
   min-height: 48px;
@@ -467,19 +447,14 @@ input:focus-visible {
   outline-offset: 0;
 }
 
-/* Status messages */
 .msg {
-  display: none;
+  display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 13px 16px;
   border-radius: 12px;
   font-size: 0.95em;
   border: 1px solid transparent;
-}
-
-.msg.visible {
-  display: flex;
 }
 
 .msg svg {
@@ -501,12 +476,6 @@ input:focus-visible {
   color: var(--danger);
 }
 
-.msg-success {
-  background: var(--success-soft);
-  border-color: var(--success);
-  color: var(--success);
-}
-
 .spinner {
   width: 18px;
   height: 18px;
@@ -524,19 +493,14 @@ input:focus-visible {
   }
 }
 
-/* Result card */
 .result {
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 20px;
   border: 1px solid var(--success);
   border-radius: 14px;
   background: var(--surface);
-}
-
-.result.visible {
-  display: flex;
 }
 
 .result h2 {
@@ -565,7 +529,6 @@ input:focus-visible {
   color: var(--text);
 }
 
-/* Footer */
 .site-footer {
   border-top: 1px solid var(--border);
   padding-block: 20px;
@@ -574,8 +537,6 @@ input:focus-visible {
   text-align: center;
 }
 
-/* Tablet: Tab S9 portrait ~753px gets comfortable 2-col grid automatically;
-   landscape ~1205px reaches desktop widths. Verify both orientations. */
 @media (min-width: 640px) {
   .hero {
     text-align: left;

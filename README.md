@@ -31,7 +31,8 @@ Then open http://localhost:8000. Opening the files directly (`file://`) won't wo
 ```text
 index.html                     home page with the tool cards
 assets/css/style.css           shared styles and theme tokens
-assets/js/common.js            theme toggle
+assets/js/common.js            theme toggle and byte formatting
+assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 ```
 

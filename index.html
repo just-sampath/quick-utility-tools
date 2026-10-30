@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=' 'sha256-8IG3HmRKtcJ2pp8OfYwEPTpuGe/zVdZWHJsQyVPwoVo='; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
   <meta name="description" content="Free tools that run entirely in your browser. Remove PDF passwords, shrink images and PDFs. Nothing is ever uploaded.">
   <title>Quick Utility Tools</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
@@ -39,8 +40,8 @@
     <div class="container tool-grid">
       <a class="card" href="./tools/pdf-password-remover/index.html">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-        <div style="display:flex;align-items:center;width:100%">
-          <h3 style="margin:0">PDF Password Remover</h3>
+        <div class="card-head">
+          <h3>PDF Password Remover</h3>
           <span class="badge badge-new">New</span>
         </div>
         <p>Unlock password-protected PDFs while keeping text selectable and images untouched.</p>
@@ -48,8 +49,8 @@
 
       <div class="card card-soon" aria-disabled="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-        <div style="display:flex;align-items:center;width:100%">
-          <h3 style="margin:0">Image Size Reducer</h3>
+        <div class="card-head">
+          <h3>Image Size Reducer</h3>
           <span class="badge badge-soon">Soon</span>
         </div>
         <p>Shrink JPG and PNG files without visible quality loss.</p>
@@ -57,8 +58,8 @@
 
       <div class="card card-soon" aria-disabled="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m8 13 4 4 4-4M12 17V9"/></svg>
-        <div style="display:flex;align-items:center;width:100%">
-          <h3 style="margin:0">PDF Size Reducer</h3>
+        <div class="card-head">
+          <h3>PDF Size Reducer</h3>
           <span class="badge badge-soon">Soon</span>
         </div>
         <p>Compress large PDFs without losing quality.</p>
