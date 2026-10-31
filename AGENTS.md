@@ -39,10 +39,25 @@ tools/<tool-name>/                  one folder per tool, self-contained:
 - Engines load lazily inside workers, so the home page and an idle tool page download nothing from the CDN.
 - Theme system: `<html data-theme>` attribute set by an inline snippet in each page's `<head>` (prevents flash), toggled via button, persisted in `localStorage.theme`. Auto dark/light respects `prefers-color-scheme` when no stored preference exists.
 
+## Target devices
+
+Layouts are tuned and checked at these CSS viewports (Chrome, browser UI subtracted):
+
+| Device | Portrait | Landscape |
+|---|---|---|
+| Samsung Galaxy S26 Ultra (6.9", 3120×1440) | 412×~780 (384 wide at larger screen zoom) | ~891×340 |
+| Samsung Galaxy Tab S9 (11", 2560×1600) | 753–800 wide × ~1100 | 1205–1280 × ~660 |
+| MSI Bravo 15 B5DD (15.6", 1920×1080) | — | 1536×~738 at Windows' default 125% scaling, 1920×~950 at 100% |
+
+After layout changes, check every size above for horizontal overflow, orphaned grid items, tap targets under 44px, and whether the primary action is reachable.
+
 ## Conventions
 
-- Mobile-first CSS. Fluid sizing with `clamp()`. Breakpoints at 640px and 1024px only.
-- Touch targets minimum 44px. Inputs use 16px font-size (prevents iOS zoom-on-focus). Use `dvh`, not `vh`.
+- Mobile-first CSS. Fluid sizing with `clamp()`. Width breakpoints at 640px and 1024px only. One height query, `(max-height: 500px)`, handles phone landscape (the header stops being sticky). Components inside `.options` adapt to their own width with a container query at 480px, because the same panel is full-width on phones and tablets but a 360px sidebar on laptops.
+- At 1024px and up, pages with `<main class="... tool-wide">` and a visible `.options` panel switch to two columns: content on the left, a sticky settings sidebar on the right whose action buttons stay pinned at its bottom.
+- Touch targets minimum 44px. Inputs use 16px font-size (prevents iOS zoom-on-focus). Never use `vh`: use `svh` for spacing (stable while the mobile URL bar collapses) and `dvh` for full-height layout.
+- Pages use `viewport-fit=cover`, so the container, header and footer pad with `env(safe-area-inset-*)` to stay clear of the camera cutout and the Android gesture bar.
+- Every page carries `<meta name="color-scheme" content="light dark">` (stops Samsung Internet's forced dark mode from repainting the site) and two `theme-color` metas; `initTheme` keeps them matched to the chosen theme.
 - Hover effects must be wrapped in `@media (hover: hover)`.
 - Show/hide elements with the `hidden` attribute, never with `.visible`-style classes. Components set their real `display` and rely on the global `[hidden]` rule.
 - All colors/spacing go through the CSS custom properties at the top of `style.css`. Both themes must be updated together.
