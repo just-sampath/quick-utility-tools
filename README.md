@@ -40,6 +40,13 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 - **Balanced** (quality 75, longest side 2000 px) and **Smallest** (quality 55, 1300 px) also recompress images and scale down larger JPEG images. **Custom** unlocks the same controls: image quality (1 to 100%) and a size limit, either a percentage of the original or a longest side in pixels. Editing any value switches to Custom, and images are never enlarged. Resolution (DPI), format and background aren't offered because PDF images have no fixed DPI until placed on a page, and the output stays a PDF. The images go out through qpdf's JSON interface, get resized in a worker with MozJPEG, and are written back with qpdf.
 - Uses the same qpdf engine as the password remover, plus MozJPEG when images need resizing.
 
+### Image Converter
+
+Converts JPG, PNG, WebP, HEIC and AVIF images to JPG, PNG or WebP, one or many at a time, with a ZIP download for batches.
+
+- The pixel size is kept. JPG and WebP have a quality setting, PNG is lossless, and transparent areas become white or black when the result is a JPG.
+- Uses the same codecs as the Image Size Reducer, loaded only when needed. The size change is shown for every file, including increases, and a file converted to its own format is flagged as re-encoded.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
