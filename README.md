@@ -40,6 +40,15 @@ Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be do
 - Each codec downloads only when an image needs it (MozJPEG about 250 KB, WebP 280 KB, oxipng 165 KB, image-q 100 KB, libheif 2 MB).
 - Re-encoding strips photo metadata such as camera model and GPS location. If compressing would make an image bigger and you didn't ask to resize, convert or change the resolution of it, you get the original back.
 
+### Image Crop, Rotate and Flip
+
+Crops, rotates, straightens and flips one image at a time, entirely on a canvas. No codec or engine is downloaded.
+
+- Drag the crop box or its handles on the picture, or type exact Left, Top, Width and Height values in pixels. Crop shape presets (square, 4:3, 3:2, 16:9 and their portrait versions) keep the ratio while you resize.
+- Rotate in 90 degree steps, flip horizontally or vertically, and straighten by up to 45 degrees in either direction. The crop box resets after a rotation or straightening change.
+- Save as JPG, PNG, WebP or the original format, with a quality setting for JPG and WebP. The fill color (white or black) shows in the corners of a straightened JPG, while PNG and WebP keep them transparent.
+- EXIF orientation is applied on load, and saving strips photo metadata such as camera model and GPS location. Results larger than about 16.7 megapixels are scaled down and flagged.
+
 ### PDF Size Reducer
 
 Makes PDFs smaller while keeping text selectable and any password protection in place.
