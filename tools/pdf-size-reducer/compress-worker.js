@@ -120,7 +120,7 @@ async function compress(q, bytes, password, opts, progress) {
   if (opts) {
     progress("Converting images…");
     const code = qpdfExec(q, [...pw, "--optimize-images", "--jpeg-quality=92", src, "/job/a.pdf"]);
-    if (!succeeded(code)) return { code };
+    if (!succeeded(code)) return { code, password: qpdfPasswordProblem() };
     src = "/job/a.pdf";
     const r = await downsample(q, pw, src, "/job/b.pdf", opts, progress);
     resized = r.resized;
@@ -130,7 +130,7 @@ async function compress(q, bytes, password, opts, progress) {
   const args = [...pw, ...STRUCTURE];
   if (opts) args.push("--optimize-images", "--jpeg-quality=" + opts.quality);
   const code = qpdfExec(q, [...args, src, "/job/out.pdf"]);
-  if (!succeeded(code)) return { code };
+  if (!succeeded(code)) return { code, password: qpdfPasswordProblem() };
   return { code, out: q.FS.readFile("/job/out.pdf"), resized };
 }
 
@@ -148,9 +148,7 @@ self.onmessage = async (e) => {
     if (r.out) {
       self.postMessage({ id, ok: true, bytes: r.out, resized: r.resized }, [r.out.buffer]);
     } else {
-      // ponytail: exit 2 conflates wrong password with corrupt file; the %PDF
-      // magic-byte check in app.js filters most junk before it gets here
-      self.postMessage({ id, ok: false, needsPassword: r.code === 2 && !password, wrongPassword: r.code === 2 && !!password });
+      self.postMessage({ id, ok: false, needsPassword: r.password && !password, wrongPassword: r.password && !!password });
     }
   } catch (err) {
     self.postMessage({ id, ok: false, fatal: String((err && err.message) || err) });
