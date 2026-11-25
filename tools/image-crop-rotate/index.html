@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk='; style-src 'self'; img-src data:; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f6f9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+  <meta name="description" content="Crop, rotate, straighten and flip an image right in your browser. Nothing is uploaded.">
+  <title>Image Crop, Rotate and Flip | Quick Utility Tools</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
+  <script>
+    document.documentElement.dataset.theme =
+      localStorage.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  </script>
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="brand" href="../../index.html">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/></svg>
+        Quick Utility Tools
+      </a>
+      <button class="theme-toggle" type="button" aria-label="Toggle dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="tool-main container tool-wide">
+    <div class="tool-head">
+      <h1>Image Crop, Rotate and Flip</h1>
+      <p>Crop an image, rotate it, straighten it or flip it. Drag the crop box on the picture or type exact values. Works on JPG, PNG and WebP images.</p>
+    </div>
+
+    <div class="panel">
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/bmp,.jpg,.jpeg,.png,.webp,.avif,.gif,.bmp" class="visually-hidden">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+        <strong>Choose an image or drop it here</strong>
+        <span>Your image stays on this device</span>
+      </label>
+
+      <div class="icr-stage" id="stage" hidden>
+        <div class="icr-name" id="imageName"></div>
+        <div class="icr-view" id="view">
+          <canvas class="icr-canvas" id="canvas" aria-label="Image preview with crop box"></canvas>
+        </div>
+        <p class="hint">Drag inside the box to move it and drag the handles to resize it. You can also type exact values under Crop.</p>
+      </div>
+
+      <div class="options" id="options" hidden>
+        <fieldset class="field">
+          <legend class="field-label">Rotate and flip</legend>
+          <div class="icr-tools">
+            <button class="icr-tool" id="rotateLeftBtn" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13A9 9 0 1 0 6 6.3L3 9"/></svg><span>Rotate left</span></button>
+            <button class="icr-tool" id="rotateRightBtn" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M20.5 13A9 9 0 1 1 18 6.3L21 9"/></svg><span>Rotate right</span></button>
+            <button class="icr-tool" id="flipHBtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><path d="M8 7 3 17h5z"/><path d="m16 7 5 10h-5z"/></svg><span>Flip horizontal</span></button>
+            <button class="icr-tool" id="flipVBtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18"/><path d="M7 8 17 3v5z"/><path d="m7 16 10 5v-5z"/></svg><span>Flip vertical</span></button>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label class="field-label" for="angleInput">Straighten: <span id="angleValue">0°</span></label>
+          <input type="range" id="angleInput" min="-45" max="45" step="0.5" value="0">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="ratioSelect">Crop shape</label>
+          <select id="ratioSelect">
+            <option value="free">Free</option>
+            <option value="original">Same as image</option>
+            <option value="1:1">Square 1:1</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+            <option value="3:2">3:2</option>
+            <option value="2:3">2:3</option>
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend class="field-label">Crop</legend>
+          <div class="icr-grid">
+            <div class="input-suffix"><input type="number" id="cropX" inputmode="numeric" min="0" step="1" aria-label="Crop left"><span>Left</span></div>
+            <div class="input-suffix"><input type="number" id="cropY" inputmode="numeric" min="0" step="1" aria-label="Crop top"><span>Top</span></div>
+            <div class="input-suffix"><input type="number" id="cropW" inputmode="numeric" min="1" step="1" aria-label="Crop width"><span>Width</span></div>
+            <div class="input-suffix"><input type="number" id="cropH" inputmode="numeric" min="1" step="1" aria-label="Crop height"><span>Height</span></div>
+          </div>
+          <p class="hint" id="cropNote">Values are in pixels.</p>
+        </fieldset>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label" for="formatSelect">Format</label>
+            <select id="formatSelect">
+              <option value="same">Same as original</option>
+              <option value="jpeg">JPG</option>
+              <option value="webp">WebP</option>
+              <option value="png">PNG</option>
+            </select>
+          </div>
+          <div class="field" id="qualityField">
+            <label class="field-label" for="qualityInput">Quality</label>
+            <div class="input-suffix">
+              <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="92">
+              <span>%</span>
+            </div>
+          </div>
+        </div>
+
+        <fieldset class="field">
+          <legend class="field-label">Fill color</legend>
+          <div class="swatches">
+            <label><input class="visually-hidden" type="radio" name="background" value="white" checked><span class="swatch swatch-white"></span><span class="visually-hidden">White</span></label>
+            <label><input class="visually-hidden" type="radio" name="background" value="black"><span class="swatch swatch-black"></span><span class="visually-hidden">Black</span></label>
+          </div>
+        </fieldset>
+
+        <p class="hint">The fill color shows in the corners when you straighten a JPG. PNG and WebP keep those corners transparent. Saving removes photo details such as camera model and GPS location, and keeps the picture upright.</p>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="saveBtn" type="button">Create image</button>
+          <button class="btn btn-secondary" id="resetBtn" type="button">Reset</button>
+          <button class="link-btn" id="newBtn" type="button">Choose another image</button>
+        </div>
+      </div>
+
+      <div class="msg" id="msg" role="status" aria-live="polite" hidden></div>
+
+      <div class="result" id="result" hidden>
+        <h2>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span>Image ready</span>
+        </h2>
+        <div class="result-stats">
+          <span>Size: <strong id="statDims"></strong></span>
+          <span>Before: <strong id="statBefore"></strong></span>
+          <span>After: <strong id="statAfter"></strong></span>
+        </div>
+        <p class="flag" id="resultFlag" hidden></p>
+        <a class="btn btn-primary" id="downloadBtn" download>Download image</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">© Quick Utility Tools</div>
+  </footer>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
