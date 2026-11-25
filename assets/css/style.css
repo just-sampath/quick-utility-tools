@@ -903,3 +903,13 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+.i2p-order {
+  display: flex;
+  gap: 8px;
+}
+
+.i2p-order .btn {
+  min-width: 44px;
+  min-height: 44px;
+}

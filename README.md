@@ -62,6 +62,7 @@ assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
+tools/images-to-pdf/           tool page, UI script, convert worker and small PDF writer
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
