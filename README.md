@@ -40,6 +40,15 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 - **Balanced** (quality 75, longest side 2000 px) and **Smallest** (quality 55, 1300 px) also recompress images and scale down larger JPEG images. **Custom** unlocks the same controls: image quality (1 to 100%) and a size limit, either a percentage of the original or a longest side in pixels. Editing any value switches to Custom, and images are never enlarged. Resolution (DPI), format and background aren't offered because PDF images have no fixed DPI until placed on a page, and the output stays a PDF. The images go out through qpdf's JSON interface, get resized in a worker with MozJPEG, and are written back with qpdf.
 - Uses the same qpdf engine as the password remover, plus MozJPEG when images need resizing.
 
+### Image Metadata Viewer and Remover
+
+Shows what hidden data JPG, PNG and WebP images carry and removes it without re-encoding, so the pixels are never touched.
+
+- Lists EXIF (camera make and model, date taken, exposure, lens, orientation), GPS coordinates, XMP, IPTC, comments, PNG text chunks and timestamps, and color profiles.
+- Removal cuts the metadata segments or chunks out of the file and copies everything else byte for byte. The output is never larger than the input, and files with nothing to remove come back unchanged.
+- **Keep orientation** (on by default) leaves a minimal EXIF block with only the orientation tag, so rotated photos still display upright. **Remove color profile** is off by default.
+- The Image Size Reducer already drops metadata as a side effect of re-encoding. This tool is the lossless option, and it lets you inspect first.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
@@ -62,6 +71,7 @@ assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
+tools/image-metadata/          tool page, UI script and metadata parser
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
