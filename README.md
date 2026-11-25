@@ -21,6 +21,11 @@ Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be do
 - Choose the new size by percent or pixels. The padlock keeps each image's aspect ratio, and unlocking it sets an exact width and height.
 - Choose the format (JPG, WebP or PNG), the quality (1 to 100) and an optional resolution in DPI. JPG and PNG files store the DPI value, WebP files can't.
 - The background color (white or black) fills transparent areas when an image becomes a JPG.
+- In Pixels mode with the padlock locked, every image keeps its own aspect ratio. When a batch mixes different shapes, the linked field is left on "Auto" and a note explains that the other dimension differs per image.
+- PNG quality sets the palette size: 90 and above keeps every color, 75 to 89 uses 256 colors, and lower values shrink it further (down to 16). Grayscale PNGs are reduced by gray levels instead, so quality changes their size as well.
+- Animated WebP and APNG files are reduced to their first frame, and the file's status line says so. GIF files are not accepted, for the same reason.
+- The resolution field starts empty ("Not set"). When the original files store a resolution in a JFIF header (JPG) or pHYs chunk (PNG), a note shows it. Resolution stored only in EXIF isn't read.
+- Images larger than about 16.7 megapixels are scaled down to the browser's canvas limit, and this is flagged on the file and in the result summary.
 
 - JPG uses MozJPEG, WebP uses libwebp, and PNG is color-reduced with [image-q](https://github.com/ibezkrovnyi/image-quantization) and then optimized with oxipng. The codecs come from [jSquash](https://github.com/jamsinclair/jSquash).
 - HEIC files open natively where the browser supports it (Safari). Elsewhere [libheif-js](https://github.com/catdad-experiments/libheif-js) decodes them.
