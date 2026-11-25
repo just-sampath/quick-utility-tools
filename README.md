@@ -14,6 +14,14 @@ Removes the password from a PDF you have the password for. Text stays selectable
 - Your file and password never leave your device. The only download is the qpdf engine itself (about 2 MB from jsDelivr), fetched the first time you unlock a file.
 - If a PDF needs a password to open, you enter it. PDFs that only restrict printing or copying unlock without one.
 
+### PDF Password Adder
+
+Locks a PDF with a password using AES-256 encryption. The content is not re-rendered, so text stays selectable and images stay as they were.
+
+- Runs qpdf in a Web Worker, like the password remover. Your file and passwords never leave your device.
+- Asks for the password twice, with an optional separate owner password (defaults to the same password).
+- PDFs that are already password protected are rejected with a pointer to the remover.
+
 ### Image Size Reducer
 
 Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be downloaded one by one or as a ZIP.
@@ -32,6 +40,15 @@ Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be do
 - Each codec downloads only when an image needs it (MozJPEG about 250 KB, WebP 280 KB, oxipng 165 KB, image-q 100 KB, libheif 2 MB).
 - Re-encoding strips photo metadata such as camera model and GPS location. If compressing would make an image bigger and you didn't ask to resize, convert or change the resolution of it, you get the original back.
 
+### Image Crop, Rotate and Flip
+
+Crops, rotates, straightens and flips one image at a time, entirely on a canvas. No codec or engine is downloaded.
+
+- Drag the crop box or its handles on the picture, or type exact Left, Top, Width and Height values in pixels. Crop shape presets (square, 4:3, 3:2, 16:9 and their portrait versions) keep the ratio while you resize.
+- Rotate in 90 degree steps, flip horizontally or vertically, and straighten by up to 45 degrees in either direction. The crop box resets after a rotation or straightening change.
+- Save as JPG, PNG, WebP or the original format, with a quality setting for JPG and WebP. The fill color (white or black) shows in the corners of a straightened JPG, while PNG and WebP keep them transparent.
+- EXIF orientation is applied on load, and saving strips photo metadata such as camera model and GPS location. Results larger than about 16.7 megapixels are scaled down and flagged.
+
 ### PDF Size Reducer
 
 Makes PDFs smaller while keeping text selectable and any password protection in place.
@@ -39,6 +56,23 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 - **Lossless** only rewrites the file structure (object streams, recompressed Flate data).
 - **Balanced** (quality 75, longest side 2000 px) and **Smallest** (quality 55, 1300 px) also recompress images and scale down larger JPEG images. **Custom** unlocks the same controls: image quality (1 to 100%) and a size limit, either a percentage of the original or a longest side in pixels. Editing any value switches to Custom, and images are never enlarged. Resolution (DPI), format and background aren't offered because PDF images have no fixed DPI until placed on a page, and the output stays a PDF. The images go out through qpdf's JSON interface, get resized in a worker with MozJPEG, and are written back with qpdf.
 - Uses the same qpdf engine as the password remover, plus MozJPEG when images need resizing.
+
+### PDF Merge, Split and Extract
+
+Combines PDFs, splits one into several files, or extracts pages into a new PDF. Pages are copied as they are, so text stays selectable and images stay original.
+
+- **Merge** joins two or more PDFs in the order listed. The arrows reorder them.
+- **Split** cuts one PDF into a file per page, a file per N pages, or a file per page range (for example `1-3,4-6,7-z`). Several files are delivered as one ZIP.
+- **Extract** copies the pages you list (for example `1-3,5,8-z`, where `z` is the last page) into a new PDF. Ranges are checked against the page count first.
+- A PDF that needs a password to open asks for it in its own row. The output is not password protected.
+- Uses the same qpdf engine as the other PDF tools (`--empty --pages`), fetched from jsDelivr the first time you run a job.
+
+### Image Converter
+
+Converts JPG, PNG, WebP, HEIC and AVIF images to JPG, PNG or WebP, one or many at a time, with a ZIP download for batches.
+
+- The pixel size is kept. JPG and WebP have a quality setting, PNG is lossless, and transparent areas become white or black when the result is a JPG.
+- Uses the same codecs as the Image Size Reducer, loaded only when needed. The size change is shown for every file, including increases, and a file converted to its own format is flagged as re-encoded.
 
 ### Image Metadata Viewer and Remover
 
@@ -69,8 +103,12 @@ assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
 assets/js/codecs.js            on-demand image codecs (MozJPEG, WebP, oxipng, image-q, libheif)
 assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
+tools/pdf-password-adder/      tool page, UI script and encrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
+tools/pdf-merge-split/          tool page, UI script and merge/split worker
+tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
+tools/images-to-pdf/           tool page, UI script, convert worker and small PDF writer
 tools/image-metadata/          tool page, UI script and metadata parser
 ```
 
