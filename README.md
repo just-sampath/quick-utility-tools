@@ -14,6 +14,14 @@ Removes the password from a PDF you have the password for. Text stays selectable
 - Your file and password never leave your device. The only download is the qpdf engine itself (about 2 MB from jsDelivr), fetched the first time you unlock a file.
 - If a PDF needs a password to open, you enter it. PDFs that only restrict printing or copying unlock without one.
 
+### PDF Password Adder
+
+Locks a PDF with a password using AES-256 encryption. The content is not re-rendered, so text stays selectable and images stay as they were.
+
+- Runs qpdf in a Web Worker, like the password remover. Your file and passwords never leave your device.
+- Asks for the password twice, with an optional separate owner password (defaults to the same password).
+- PDFs that are already password protected are rejected with a pointer to the remover.
+
 ### Image Size Reducer
 
 Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be downloaded one by one or as a ZIP.
@@ -60,6 +68,7 @@ assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
 assets/js/codecs.js            on-demand image codecs (MozJPEG, WebP, oxipng, image-q, libheif)
 assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
+tools/pdf-password-adder/      tool page, UI script and encrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
 ```
