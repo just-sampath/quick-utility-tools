@@ -33,7 +33,8 @@ function candidates(objects, opts) {
     if (!d || d["/Subtype"] !== "/Image" || d["/Filter"] !== "/DCTDecode") continue;
     if (d["/BitsPerComponent"] !== 8 || d["/ImageMask"] || d["/Decode"] || d["/DecodeParms"] || Array.isArray(d["/Mask"])) continue;
     const { "/Width": w, "/Height": h } = d;
-    if (typeof w !== "number" || typeof h !== "number" || targetScale(opts, w, h) >= 1) continue;
+    if (typeof w !== "number" || typeof h !== "number") continue;
+    if (opts.quality >= 100 && targetScale(opts, w, h) >= 1) continue;
     const n = channels(objects, d["/ColorSpace"]);
     if (n !== 1 && n !== 3) continue;
     found.push({ key, num: key.match(/^obj:(\d+) (\d+) R$/), dict: d, gray: n === 1 });
@@ -73,21 +74,22 @@ async function resizeImage(raw, target, opts) {
 }
 
 async function downsample(q, pw, src, dest, opts, progress) {
-  if (!succeeded(qpdfExec(q, [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=none", src, "/job/dicts.json"]))) return 0;
+  if (!succeeded(qpdfExec(q, [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=none", src, "/job/dicts.json"]))) return { updated: 0, resized: 0 };
   const [header, objects] = readJson(q, "/job/dicts.json").qpdf;
   const targets = candidates(objects, opts);
-  if (!targets.length) return 0;
+  if (!targets.length) return { updated: 0, resized: 0 };
 
   const exportArgs = [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=file", "--json-stream-prefix=/job/s", "--decode-level=none"];
   for (const t of targets) exportArgs.push(`--json-object=${t.num[1]},${t.num[2]}`);
-  if (!succeeded(qpdfExec(q, [...exportArgs, src, "/job/data.json"]))) return 0;
+  if (!succeeded(qpdfExec(q, [...exportArgs, src, "/job/data.json"]))) return { updated: 0, resized: 0 };
   const exported = readJson(q, "/job/data.json").qpdf[1];
 
   progress("Loading the image engine…");
   codecs ??= await import("../../assets/js/codecs.js");
 
   const update = {};
-  let count = 0;
+  let updated = 0;
+  let resized = 0;
   for (const [i, t] of targets.entries()) {
     progress(`Resizing images… ${i + 1} of ${targets.length}`);
     const file = exported[t.key]?.stream?.datafile;
@@ -101,11 +103,12 @@ async function downsample(q, pw, src, dest, opts, progress) {
     const dict = { ...t.dict, "/Width": out.width, "/Height": out.height };
     delete dict["/Length"];
     update[t.key] = { stream: { dict, datafile: path } };
-    count++;
+    updated++;
+    if (out.width !== t.dict["/Width"] || out.height !== t.dict["/Height"]) resized++;
   }
-  if (!count) return 0;
+  if (!updated) return { updated: 0, resized: 0 };
   q.FS.writeFile("/job/update.json", JSON.stringify({ qpdf: [header, update] }));
-  return succeeded(qpdfExec(q, [...pw, src, "--update-from-json=/job/update.json", dest])) ? count : 0;
+  return succeeded(qpdfExec(q, [...pw, src, "--update-from-json=/job/update.json", dest])) ? { updated, resized } : { updated: 0, resized: 0 };
 }
 
 async function compress(q, bytes, password, opts, progress) {
@@ -119,8 +122,9 @@ async function compress(q, bytes, password, opts, progress) {
     const code = qpdfExec(q, [...pw, "--optimize-images", "--jpeg-quality=92", src, "/job/a.pdf"]);
     if (!succeeded(code)) return { code };
     src = "/job/a.pdf";
-    resized = await downsample(q, pw, src, "/job/b.pdf", opts, progress);
-    if (resized) src = "/job/b.pdf";
+    const r = await downsample(q, pw, src, "/job/b.pdf", opts, progress);
+    resized = r.resized;
+    if (r.updated) src = "/job/b.pdf";
   }
   progress("Compressing…");
   const args = [...pw, ...STRUCTURE];
