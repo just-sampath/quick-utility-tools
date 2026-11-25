@@ -753,11 +753,6 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
-.range-value {
-  color: var(--muted);
-  font-weight: 500;
-}
-
 .file-list {
   display: flex;
   flex-direction: column;
