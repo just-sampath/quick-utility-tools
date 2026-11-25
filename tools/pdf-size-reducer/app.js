@@ -143,7 +143,9 @@ async function compress() {
 function finish(outBytes, resized) {
   pwBlock.hidden = true;
   if (outBytes.byteLength > bytes.byteLength * 0.99) {
-    showMsg("info", "This PDF is already well optimized. These settings couldn't make it any smaller. Try a lower quality or a smaller size.");
+    showMsg("info", preset() === "lossless"
+      ? "This PDF is already well optimized. Lossless cleanup couldn't make it any smaller. Try Balanced or Smallest."
+      : "This PDF is already well optimized. These settings couldn't make it any smaller. Try a lower quality or a smaller size.");
     return;
   }
   if (url) URL.revokeObjectURL(url);
