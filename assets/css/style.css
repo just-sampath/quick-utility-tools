@@ -903,3 +903,290 @@ input[type="range"] {
     transition-duration: 0.01ms !important;
   }
 }
+
+.pms-text {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.pms-move {
+  display: flex;
+  gap: 4px;
+}
+
+.pms-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.pms-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pms-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .pms-icon-btn:not(:disabled):hover {
+    color: var(--text);
+  }
+}
+
+.pms-password {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 10px;
+}
+
+.pms-password input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* PDF Page Organizer */
+.po-wide {
+  max-width: none;
+}
+
+.po-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.po-summary {
+  font-weight: 600;
+}
+
+.po-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.po-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92em;
+}
+
+.po-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 156px), 1fr));
+  gap: 12px;
+}
+
+.po-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  cursor: grab;
+}
+
+.po-card.po-dragging {
+  opacity: 0.45;
+}
+
+.po-card.po-drop {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.po-card.po-deleted .po-frame,
+.po-card.po-deleted .po-note {
+  opacity: 0.4;
+}
+
+.po-card.po-deleted .po-badge {
+  color: var(--danger);
+}
+
+.po-frame {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.po-face {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: transform 0.2s;
+}
+
+.po-face[data-rot="90"] {
+  transform: rotate(90deg);
+}
+
+.po-face[data-rot="180"] {
+  transform: rotate(180deg);
+}
+
+.po-face[data-rot="270"] {
+  transform: rotate(270deg);
+}
+
+.po-img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.po-paper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+  background: #fff;
+  color: #5b6472;
+  font-size: 1.6em;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.po-paper[data-shape="portrait"] {
+  height: 100%;
+  aspect-ratio: 3 / 4;
+}
+
+.po-paper[data-shape="landscape"] {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+}
+
+.po-badge {
+  font-weight: 600;
+  font-size: 0.92em;
+}
+
+.po-note {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.po-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.po-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.po-btn[disabled] {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .po-btn:not([disabled]):hover {
+    background: var(--surface-2);
+  }
+}
+
+.padd-form input {
+  flex: none;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.padd-form label:not(:first-child) {
+  margin-top: 6px;
+}
+
+.padd-hint {
+  margin: 4px 0 0;
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
+.padd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.padd-actions .btn {
+  flex: 1 1 160px;
+}
+
+.i2p-order {
+  display: flex;
+  gap: 8px;
+}
+
+.i2p-order .btn {
+  min-width: 44px;
+  min-height: 44px;
+}
