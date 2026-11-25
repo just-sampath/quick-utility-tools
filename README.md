@@ -73,6 +73,7 @@ tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
 tools/pdf-merge-split/          tool page, UI script and merge/split worker
+tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
