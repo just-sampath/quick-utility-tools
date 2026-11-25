@@ -83,6 +83,7 @@ tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
 tools/pdf-merge-split/          tool page, UI script and merge/split worker
 tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
+tools/images-to-pdf/           tool page, UI script, convert worker and small PDF writer
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
