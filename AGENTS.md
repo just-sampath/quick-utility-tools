@@ -76,7 +76,7 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 ## Gotchas learned the hard way
 
 - A CSS rule setting `display: flex` beats the UA's `[hidden]` attribute. That is why `[hidden] { display: none !important }` exists globally — do not remove it.
-- qpdf/Emscripten exit code 2 conflates "wrong password" with "corrupt file". The `%PDF-` magic-byte check (`looksLikePdf`, first 1024 bytes) filters most junk upstream. Keep it.
+- qpdf/Emscripten exit code 2 conflates "wrong password" with "corrupt file". The wasm glue ignores `printErr` and writes errors through `console.error`, so `qpdf.js` captures that before loading the glue and `qpdfPasswordProblem()` checks the last call's stderr for "password". The `%PDF-` magic-byte check (`looksLikePdf`, first 1024 bytes) still filters junk upstream. Keep both.
 - `callMain` exit codes: 0 = success, 2 = invalid password or unreadable file, 3 = success with warnings. The password remover accepts only 0; the size reducer accepts 0 and 3 because real-world PDFs often produce warnings.
 - Emscripten MEMFS persists across `callMain()` invocations. That is why jobs use `/job` and `qpdfClearJob`.
 - Owner-password-only PDFs (permission restrictions) open with NO password — probe without one first, show the password field only after a failed empty attempt. qpdf keeps the input's encryption on output unless `--decrypt` is passed.

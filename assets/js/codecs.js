@@ -139,9 +139,43 @@ function ditherToPalette({ data, width, height }, palette) {
   return out;
 }
 
+function isGrayscale({ data }) {
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] !== 255 || data[i] !== data[i + 1] || data[i] !== data[i + 2]) return false;
+  }
+  return true;
+}
+
+function ditherGray({ data, width, height }, levels) {
+  const out = new Uint8Array(data.length);
+  const scale = 255 / (levels - 1);
+  let cur = new Float32Array(width + 2);
+  let next = new Float32Array(width + 2);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const v = Math.min(255, Math.max(0, data[i] + cur[x + 1]));
+      const q = Math.round(Math.round(v / scale) * scale);
+      const err = v - q;
+      cur[x + 2] += (err * 7) / 16;
+      next[x] += (err * 3) / 16;
+      next[x + 1] += (err * 5) / 16;
+      next[x + 2] += err / 16;
+      out[i] = out[i + 1] = out[i + 2] = q;
+      out[i + 3] = 255;
+    }
+    [cur, next] = [next, cur];
+    next.fill(0);
+  }
+  return out;
+}
+
 export async function encodePng(imageData, colors) {
   const oxipng = await loadOxipng();
-  const rgba = colors ? ditherToPalette(imageData, await buildPalette(imageData, colors)) : new Uint8Array(imageData.data.buffer);
+  let rgba;
+  if (!colors) rgba = new Uint8Array(imageData.data.buffer);
+  else if (isGrayscale(imageData)) rgba = ditherGray(imageData, colors);
+  else rgba = ditherToPalette(imageData, await buildPalette(imageData, colors));
   return oxipng.optimise_raw(rgba, imageData.width, imageData.height, 2, false, true).buffer;
 }
 

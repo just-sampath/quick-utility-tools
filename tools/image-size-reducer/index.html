@@ -76,6 +76,8 @@
           </div>
         </div>
 
+        <p class="hint" id="sizeNote" hidden></p>
+
         <div class="field-row">
           <div class="field">
             <label class="field-label" for="formatSelect">Format</label>
@@ -99,7 +101,7 @@
           <div class="field">
             <label class="field-label" for="dpiInput">Resolution</label>
             <div class="input-suffix">
-              <input type="number" id="dpiInput" inputmode="numeric" min="1" max="2400" step="1" placeholder="Original">
+              <input type="number" id="dpiInput" inputmode="numeric" min="1" max="2400" step="1" placeholder="Not set">
               <span>DPI</span>
             </div>
           </div>
@@ -112,7 +114,9 @@
           </fieldset>
         </div>
 
-        <p class="hint">Quality 100 keeps the most detail. The background color fills transparent areas when the result is a JPG. WebP files can't store a resolution. Photo details such as camera model and GPS location are removed. HEIC images are saved as JPG unless you pick another format.</p>
+        <p class="hint" id="dpiNote" hidden></p>
+
+        <p class="hint">Quality 100 keeps the most detail, and lower values use fewer colors in PNG files. The background color fills transparent areas when the result is a JPG. WebP files can't store a resolution. Photo details such as camera model and GPS location are removed. HEIC images are saved as JPG unless you pick another format.</p>
 
         <div class="actions">
           <button class="btn btn-primary" id="compressBtn" type="button">Resize Image</button>
@@ -133,6 +137,7 @@
           <span>After: <strong id="statAfter"></strong></span>
           <span>Saved: <strong id="statSaved"></strong></span>
         </div>
+        <p class="flag" id="resultFlag" hidden></p>
         <a class="btn btn-primary" id="zipBtn" download>Download all as ZIP</a>
       </div>
     </div>
@@ -144,6 +149,7 @@
       <div class="file-meta">
         <div class="file-name"></div>
         <div class="file-size"></div>
+        <div class="file-flag" hidden></div>
       </div>
       <span class="saving" hidden></span>
       <a class="btn btn-secondary btn-sm" hidden>Download</a>

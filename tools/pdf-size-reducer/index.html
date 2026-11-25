@@ -60,9 +60,37 @@
             <label><input class="visually-hidden" type="radio" name="preset" value="lossless"><span>Lossless</span></label>
             <label><input class="visually-hidden" type="radio" name="preset" value="balanced" checked><span>Balanced</span></label>
             <label><input class="visually-hidden" type="radio" name="preset" value="small"><span>Smallest</span></label>
+            <label><input class="visually-hidden" type="radio" name="preset" value="custom"><span>Custom</span></label>
           </div>
           <p class="hint" id="presetHint"></p>
         </fieldset>
+
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label" for="unitSelect">Shrink images by</label>
+            <select id="unitSelect">
+              <option value="percent">Percent</option>
+              <option value="pixels">Pixels</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="sizeInput" id="sizeLabel">Scale</label>
+            <div class="input-suffix">
+              <input type="number" id="sizeInput" inputmode="numeric" min="1" step="1" value="100">
+              <span id="sizeUnit">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="qualityInput">Image quality</label>
+          <div class="input-suffix">
+            <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="75">
+            <span>%</span>
+          </div>
+        </div>
+
+        <p class="hint" id="customHint">Pixels sets the longest side that large JPEG images are shrunk to. Percent scales every JPEG image. Smaller images are never enlarged. Quality 100 keeps the most detail. Other kinds of images are left as they are.</p>
         <div class="actions">
           <button class="btn btn-primary" id="compressBtn" type="button">Compress PDF</button>
         </div>
