@@ -40,6 +40,14 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 - **Balanced** (quality 75, longest side 2000 px) and **Smallest** (quality 55, 1300 px) also recompress images and scale down larger JPEG images. **Custom** unlocks the same controls: image quality (1 to 100%) and a size limit, either a percentage of the original or a longest side in pixels. Editing any value switches to Custom, and images are never enlarged. Resolution (DPI), format and background aren't offered because PDF images have no fixed DPI until placed on a page, and the output stays a PDF. The images go out through qpdf's JSON interface, get resized in a worker with MozJPEG, and are written back with qpdf.
 - Uses the same qpdf engine as the password remover, plus MozJPEG when images need resizing.
 
+### PDF Metadata Editor
+
+Shows and edits the title, author, subject, keywords, creator, producer and created/modified dates of a PDF, or strips all metadata.
+
+- **Save PDF** writes only the fields you changed into the Info dictionary. Clearing a field removes it. Non-ASCII text is stored as a proper PDF text string.
+- **Strip all metadata** removes the Info dictionary and the XMP metadata stream from the catalog. Saving alone leaves any XMP stream in place, and the page says when one is present.
+- Uses the same qpdf engine as the other PDF tools. Password-protected PDFs ask for the password and keep it on the saved copy.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
@@ -62,6 +70,7 @@ assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
+tools/pdf-metadata-editor/     tool page, UI script and metadata worker
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
