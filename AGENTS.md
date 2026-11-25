@@ -30,10 +30,12 @@ tools/<tool-name>/                  one folder per tool, self-contained:
   index.html                        tool page
   app.js                            UI wiring (ES module)
   *-worker.js                       optional Web Worker for heavy processing
+  *.js                              optional tool-local modules (images-to-pdf/pdf-writer.js, image-metadata/metadata.js)
 ```
 
 - Workers are driven through `createJobRunner(url, type)` from `common.js`. `run(payload, transfer, onProgress)` returns a Promise of the worker's reply. Replies must echo `id`; a message with a `progress` field calls `onProgress` instead of settling. `cancel()` abandons in-flight jobs: their promises never settle, so a reply for a removed file can't land on the next one. A worker crash rejects pending jobs and the next `run` starts a fresh worker.
 - PDF processing uses qpdf compiled to WASM (`@neslinesli93/qpdf-wasm@0.3.0`, qpdf 12.2.0). A worker does `importScripts("../../assets/js/qpdf.js")`, then either `runQpdf(bytes, options)` for a single call, or `loadQpdf()` + `qpdfExec(q, args)` for multi-step jobs. All job files live in `/job`; call `qpdfClearJob(q)` at the start and end of every job.
+- What each tool runs on. qpdf in a classic worker (`importScripts`): `pdf-password-remover`, `pdf-password-adder`, `pdf-size-reducer`, `pdf-merge-split`, `pdf-page-organizer`, `pdf-metadata-editor`. `codecs.js` in a module worker: `image-size-reducer`, `image-converter`, `images-to-pdf` (only `decodeHeic`). No worker and no engine: `image-crop-rotate` (canvas on the main thread) and `image-metadata` (byte-level parser in `metadata.js`).
 - Image codecs live in `codecs.js`: `encodeJpeg` (MozJPEG), `encodeWebp`, `encodePng` (image-q palette + own dither + oxipng), `decodeHeic` (libheif). Each loads on first use and retries the load after a failure.
 - Version pins live in exactly two files: `QPDF_BASE` in `assets/js/qpdf.js` and the constants at the top of `assets/js/codecs.js`.
 - Engines load lazily inside workers, so the home page and an idle tool page download nothing from the CDN.
@@ -69,7 +71,7 @@ After layout changes, check every size above for horizontal overflow, orphaned g
 Every page has a `<meta http-equiv="Content-Security-Policy">` right after the viewport meta. It starts from `default-src 'none'`, so the page itself cannot send data anywhere. That is what backs the privacy promise in the browser.
 
 - Inline scripts are allowed by `sha256-` hash. Changing a single character (even whitespace) of an inline `<script>` breaks it; recompute the hash: sha256 over the exact text between `<script>` and `</script>` with LF line endings, base64-encoded. The theme snippet hash is `sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=` while the snippet is copied unchanged.
-- Pages whose worker loads an engine also allow `https://cdn.jsdelivr.net` in `script-src`/`connect-src`, plus `'wasm-unsafe-eval'` and `worker-src 'self'`. Browsers that apply the page policy to the worker need these; pages without a worker must not list them.
+- Pages whose worker loads an engine also allow `https://cdn.jsdelivr.net` in `script-src`/`connect-src`, plus `'wasm-unsafe-eval'` and `worker-src 'self'`. Browsers that apply the page policy to the worker need these; pages without one (`image-crop-rotate`, `image-metadata`) must not list them.
 - A meta CSP does not cover a same-origin worker in browsers that follow CSP3 (the worker would need its own response header, which GitHub Pages can't set). Keep worker code to engine calls and posting results back.
 - No `style="..."` attributes or inline `<style>`: `style-src` is `'self'` only.
 
@@ -77,7 +79,7 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 
 - A CSS rule setting `display: flex` beats the UA's `[hidden]` attribute. That is why `[hidden] { display: none !important }` exists globally — do not remove it.
 - qpdf/Emscripten exit code 2 conflates "wrong password" with "corrupt file". The wasm glue ignores `printErr` and writes errors through `console.error`, so `qpdf.js` captures that before loading the glue and `qpdfPasswordProblem()` checks the last call's stderr for "password". The `%PDF-` magic-byte check (`looksLikePdf`, first 1024 bytes) still filters junk upstream. Keep both.
-- `callMain` exit codes: 0 = success, 2 = invalid password or unreadable file, 3 = success with warnings. The password remover accepts only 0; the size reducer accepts 0 and 3 because real-world PDFs often produce warnings.
+- `callMain` exit codes: 0 = success, 2 = invalid password or unreadable file, 3 = success with warnings. The password remover and password adder accept only 0. The size reducer, merge/split, page organizer and metadata editor accept 0 and 3 because real-world PDFs often produce warnings.
 - Emscripten MEMFS persists across `callMain()` invocations. That is why jobs use `/job` and `qpdfClearJob`.
 - Owner-password-only PDFs (permission restrictions) open with NO password — probe without one first, show the password field only after a failed empty attempt. qpdf keeps the input's encryption on output unless `--decrypt` is passed.
 - qpdf `--optimize-images --jpeg-quality=N` re-encodes existing JPEGs too (when smaller), but never downsamples. Downsampling goes through JSON v2: `--json=2 --json-key=qpdf` (the `objects` key is v1-only), export chosen streams raw with `--json-object=N,G --json-stream-data=file --json-stream-prefix=/job/s --decode-level=none` (files land at `/job/s-N`), then write them back with `--update-from-json`.
@@ -85,7 +87,9 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 - `@jsquash/webp` and `@jsquash/oxipng` entry files import the bare specifier `wasm-feature-detect`, which can't resolve from a CDN inside a worker (no import maps). `codecs.js` imports their codec files directly. Use oxipng's single-thread `codec/pkg` build: threads need COOP/COEP headers, which GitHub Pages can't send.
 - image-q's wuquant on a full image is far too slow (12 s for 3 MP). Build the palette from a strided sample of at most 262,144 pixels and map pixels with the cached Floyd–Steinberg in `codecs.js`.
 - The PDF size reducer worker is a classic worker (it needs `importScripts` for qpdf) and loads `codecs.js` with dynamic `import()`.
-- iOS caps canvas area at about 16.7 MP; the image worker scales down anything larger and tells the user.
+- iOS caps canvas area at about 16.7 MP. The image tools scale down anything larger and tell the user: the size reducer, converter and images-to-PDF workers cap at 16,777,216 pixels, `image-crop-rotate` at 16,000,000.
+- There is no PDF renderer: pdf.js would be a new dependency, so ask first. The page organizer previews a page from its largest embedded RGB or grayscale DCT image and shows a numbered blank otherwise.
+- Images to PDF writes its own PDF (`pdf-writer.js`, Flate through `CompressionStream`). Baseline and progressive RGB or grayscale JPEGs with EXIF orientation 1 are embedded unchanged; everything else is drawn on a canvas and stored as Flate RGB plus a soft mask for alpha.
 
 ## Adding a new tool
 
@@ -93,6 +97,7 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 2. Add `app.js`; add a worker file only if processing can block the main thread, and drive it with `createJobRunner`.
 3. Reuse `assets/css/style.css` classes — add new component styles there, not inline.
 4. Add a card to the grid in the root `index.html`. Unbuilt tools get class `card-soon` plus badge `badge-soon`.
+5. Add a section to `README.md` under PDF tools or Image tools, and a line to its Layout block. If the tool uses qpdf or a codec, add its cases to the bump matrix under Boundaries.
 
 ## Boundaries
 
@@ -104,4 +109,4 @@ Never:
 
 Ask first:
 - Adding any dependency, bundler, framework, or build step.
-- Bumping any pinned engine version. qpdf needs the full test matrix rerun afterward: password remover (user-pw correct/wrong, owner-only, unencrypted, corrupt) and size reducer (scanned JPEG, Flate image, grayscale, CMYK, encrypted, owner-only, text-only, already-small). Codec bumps need the image matrix rerun (JPG with EXIF rotation, PNG with alpha, WebP, HEIC, unsupported file, already-optimized).
+- Bumping any pinned engine version. qpdf needs the full test matrix rerun afterward: password remover (user-pw correct/wrong, owner-only, unencrypted, corrupt), size reducer (scanned JPEG, Flate image, grayscale, CMYK, encrypted, owner-only, text-only, already-small), password adder (unencrypted, already encrypted, separate owner password), merge/split/extract (merge, split per page, every N pages and by ranges, extract, password-protected input), page organizer (reorder, rotate, delete, JPEG thumbnails, password-protected) and metadata editor (edit, non-ASCII text, clear a field, strip with XMP present, password-protected). Codec bumps need the image matrix rerun (JPG with EXIF rotation, PNG with alpha, WebP, HEIC, unsupported file, already-optimized) in the image size reducer and image converter, plus HEIC in images to PDF.
