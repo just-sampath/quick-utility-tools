@@ -83,6 +83,14 @@ Shows what hidden data JPG, PNG and WebP images carry and removes it without re-
 - **Keep orientation** (on by default) leaves a minimal EXIF block with only the orientation tag, so rotated photos still display upright. **Remove color profile** is off by default.
 - The Image Size Reducer already drops metadata as a side effect of re-encoding. This tool is the lossless option, and it lets you inspect first.
 
+### PDF Metadata Editor
+
+Shows and edits the title, author, subject, keywords, creator, producer and created/modified dates of a PDF, or strips all metadata.
+
+- **Save PDF** writes only the fields you changed into the Info dictionary. Clearing a field removes it. Non-ASCII text is stored as a proper PDF text string.
+- **Strip all metadata** removes the Info dictionary and the XMP metadata stream from the catalog. Saving alone leaves any XMP stream in place, and the page says when one is present.
+- Uses the same qpdf engine as the other PDF tools. Password-protected PDFs ask for the password and keep it on the saved copy.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
@@ -110,6 +118,7 @@ tools/pdf-merge-split/          tool page, UI script and merge/split worker
 tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
 tools/images-to-pdf/           tool page, UI script, convert worker and small PDF writer
 tools/image-metadata/          tool page, UI script and metadata parser
+tools/pdf-metadata-editor/     tool page, UI script and metadata worker
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
