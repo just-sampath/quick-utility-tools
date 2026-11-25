@@ -74,6 +74,15 @@ Converts JPG, PNG, WebP, HEIC and AVIF images to JPG, PNG or WebP, one or many a
 - The pixel size is kept. JPG and WebP have a quality setting, PNG is lossless, and transparent areas become white or black when the result is a JPG.
 - Uses the same codecs as the Image Size Reducer, loaded only when needed. The size change is shown for every file, including increases, and a file converted to its own format is flagged as re-encoded.
 
+### Image Metadata Viewer and Remover
+
+Shows what hidden data JPG, PNG and WebP images carry and removes it without re-encoding, so the pixels are never touched.
+
+- Lists EXIF (camera make and model, date taken, exposure, lens, orientation), GPS coordinates, XMP, IPTC, comments, PNG text chunks and timestamps, and color profiles.
+- Removal cuts the metadata segments or chunks out of the file and copies the image data byte for byte. PNG and WebP keep only known image chunks, so unrecognised chunks (such as C2PA content credentials) are removed too, and so is any data appended after the end of the image. Files with nothing to remove come back unchanged.
+- **Keep orientation** (on by default) leaves a minimal EXIF block with only the orientation tag, so rotated photos still display upright. **Remove color profile** is off by default.
+- The Image Size Reducer already drops metadata as a side effect of re-encoding. This tool is the lossless option, and it lets you inspect first.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
@@ -100,6 +109,7 @@ tools/pdf-size-reducer/        tool page, UI script and compress worker
 tools/pdf-merge-split/          tool page, UI script and merge/split worker
 tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
 tools/images-to-pdf/           tool page, UI script, convert worker and small PDF writer
+tools/image-metadata/          tool page, UI script and metadata parser
 ```
 
 Each tool lives in its own folder under `tools/` and gets a card in `index.html`.
