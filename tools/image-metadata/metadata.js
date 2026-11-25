@@ -57,9 +57,9 @@ function scanJpeg(b) {
       continue;
     }
     if (marker === 0xd9) {
-      parts.push({ start: pos, end: b.length, kind: "keep" });
+      parts.push({ start: pos, end: hdr, kind: "keep" });
+      if (hdr < b.length) parts.push({ start: hdr, end: b.length, kind: "trailing" });
       pos = b.length;
-      sawScan = true;
       break;
     }
     if (hdr + 2 > b.length) throw new Error("Damaged JPEG: file is cut off.");
@@ -67,9 +67,12 @@ function scanJpeg(b) {
     const end = hdr + len;
     if (len < 2 || end > b.length) throw new Error("Damaged JPEG: file is cut off.");
     if (marker === 0xda) {
-      parts.push({ start: pos, end: b.length, kind: "keep" });
+      let q = end;
+      while (q < b.length && !(b[q] === 0xff && b[q + 1] !== undefined && b[q + 1] !== 0x00 && b[q + 1] !== 0xff && !(b[q + 1] >= 0xd0 && b[q + 1] <= 0xd7))) q++;
+      parts.push({ start: pos, end: q, kind: "keep" });
       sawScan = true;
-      break;
+      pos = q;
+      continue;
     }
     const part = { start: pos, end, kind: "keep", data: hdr + 2 };
     if (marker === 0xfe) part.kind = "comment";
@@ -82,7 +85,7 @@ function scanJpeg(b) {
         part.data = d + 6;
       } else if (marker === 0xe1 && (startsWith(b, d, "http://ns.adobe.com/xap/1.0/\0") || startsWith(b, d, "http://ns.adobe.com/xmp/extension/\0"))) {
         part.kind = "xmp";
-        part.data = d + 29;
+        part.data = d + (startsWith(b, d, "http://ns.adobe.com/xap/1.0/\0") ? 29 : 35);
       } else if (marker === 0xe2 && startsWith(b, d, "ICC_PROFILE\0")) part.kind = "icc";
       else if (marker === 0xed && startsWith(b, d, "Photoshop 3.0\0")) part.kind = "iptc";
       else part.kind = "other";
@@ -93,6 +96,9 @@ function scanJpeg(b) {
   if (!sawScan) throw new Error("Damaged JPEG: no image data found.");
   return parts;
 }
+
+const PNG_KEEP = new Set(["tRNS", "gAMA", "cHRM", "sRGB", "pHYs", "sBIT", "bKGD", "hIST", "sPLT", "acTL", "fcTL", "fdAT", "cICP", "mDCV", "cLLI"]);
+const WEBP_KEEP = new Set(["VP8 ", "VP8L", "VP8X", "ANIM", "ANMF", "ALPH"]);
 
 function scanPng(b) {
   const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
@@ -111,6 +117,7 @@ function scanPng(b) {
     else if (type === "eXIf") part.kind = "exif";
     else if (type === "tIME") part.kind = "time";
     else if (type === "iCCP") part.kind = "icc";
+    else if (!PNG_KEEP.has(type) && !(type.charCodeAt(0) >= 0x41 && type.charCodeAt(0) <= 0x5a)) part.kind = "other";
     parts.push(part);
     pos = end;
     if (type === "IEND") {
@@ -119,7 +126,7 @@ function scanPng(b) {
     }
   }
   if (!sawEnd) throw new Error("Damaged PNG: no end marker found.");
-  if (pos < b.length) parts.push({ start: pos, end: b.length, kind: "keep" });
+  if (pos < b.length) parts.push({ start: pos, end: b.length, kind: "trailing" });
   if (parts[1].type !== "IHDR") throw new Error("Damaged PNG: header is missing.");
   return parts;
 }
@@ -140,9 +147,12 @@ function scanWebp(b) {
     else if (type === "XMP ") part.kind = "xmp";
     else if (type === "ICCP") part.kind = "icc";
     else if (type === "VP8X") part.vp8x = true;
+    else if (!WEBP_KEEP.has(type)) part.kind = "other";
     parts.push(part);
     pos = end;
   }
+  if (pos < riffEnd) parts.push({ start: pos, end: riffEnd, kind: "trailing" });
+  if (riffEnd < b.length) parts.push({ start: riffEnd, end: b.length, kind: "trailing" });
   if (!parts.some((p) => p.type === "VP8 " || p.type === "VP8L" || p.type === "VP8X" || p.type === "ANMF")) {
     throw new Error("Damaged WebP: no image data found.");
   }
@@ -283,12 +293,13 @@ function parseTiff(t) {
     if (orientation) out.entries.push({ label: "Orientation", value: ORIENTATIONS[out.orientation] });
     const exifPtr = ifd0.get(0x8769);
     if (exifPtr) {
-      const exif = readIfd(values(exifPtr)[0]);
-      collect(exif, EXIF_TAGS);
+      const exifOff = values(exifPtr)[0];
+      if (typeof exifOff === "number") collect(readIfd(exifOff), EXIF_TAGS);
     }
     const gpsPtr = ifd0.get(0x8825);
     if (gpsPtr) {
-      const gps = readIfd(values(gpsPtr)[0]);
+      const gpsOff = values(gpsPtr)[0];
+      const gps = typeof gpsOff === "number" ? readIfd(gpsOff) : new Map();
       const ref = (id) => (gps.get(id) ? text(gps.get(id)).charAt(0).toUpperCase() : "");
       const lat = dms(gps.get(2), ref(1));
       const lon = dms(gps.get(4), ref(3));
@@ -394,6 +405,7 @@ export function readMetadata(bytes) {
     let exifSeen = false;
     let iccSize = 0;
     let otherCount = 0;
+    let trailingSize = 0;
     const comments = [];
     const texts = [];
     let times = null;
@@ -425,12 +437,15 @@ export function readMetadata(bytes) {
         }
       } else if (part.kind === "other") {
         otherCount++;
+      } else if (part.kind === "trailing") {
+        trailingSize += part.end - part.start;
       }
     }
     if (comments.length) add("comment", "Comments", comments);
     if (texts.length) add("text", "Text chunks", texts);
     if (times) add("time", "Timestamp", times);
     if (otherCount) add("other", "Other application data", [{ label: "Segments", value: String(otherCount) }]);
+    if (trailingSize) add("trailing", "Trailing data", [{ label: "Size", value: formatSize(trailingSize) }]);
     if (iccSize) add("icc", "Color profile", [{ label: "Size", value: formatSize(iccSize) }]);
     return { ok: true, format, groups, orientation, hasIcc: iccSize > 0 };
   } catch (e) {
@@ -499,7 +514,6 @@ export function stripMetadata(bytes, options = {}) {
         out[vp8xAt + 8] = flags;
       }
     }
-    if (out.length >= bytes.length) return { ok: true, bytes, changed: false, removed: [] };
     return { ok: true, bytes: out, changed: true, removed: [...removed], format };
   } catch (e) {
     return { ok: false, error: e instanceof Error && e.message ? e.message : "Couldn't read this image." };

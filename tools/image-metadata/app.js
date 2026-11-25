@@ -32,6 +32,7 @@ const REMOVED_NAMES = {
   text: "text chunks",
   time: "timestamp",
   other: "other data",
+  trailing: "trailing data",
   icc: "color profile",
 };
 
@@ -282,5 +283,8 @@ zipBtn.addEventListener("click", (e) => {
     zipBtn.download = "clean-images.zip";
     zipBtn.textContent = "Download all as ZIP";
     zipBtn.click();
+  }).catch(() => {
+    zipBtn.textContent = "Download all as ZIP";
+    showMsg("error", "Couldn't prepare the ZIP. Download the images one by one instead.");
   });
 });

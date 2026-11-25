@@ -45,7 +45,7 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 Shows what hidden data JPG, PNG and WebP images carry and removes it without re-encoding, so the pixels are never touched.
 
 - Lists EXIF (camera make and model, date taken, exposure, lens, orientation), GPS coordinates, XMP, IPTC, comments, PNG text chunks and timestamps, and color profiles.
-- Removal cuts the metadata segments or chunks out of the file and copies everything else byte for byte. The output is never larger than the input, and files with nothing to remove come back unchanged.
+- Removal cuts the metadata segments or chunks out of the file and copies the image data byte for byte. PNG and WebP keep only known image chunks, so unrecognised chunks (such as C2PA content credentials) are removed too, and so is any data appended after the end of the image. Files with nothing to remove come back unchanged.
 - **Keep orientation** (on by default) leaves a minimal EXIF block with only the orientation tag, so rotated photos still display upright. **Remove color profile** is off by default.
 - The Image Size Reducer already drops metadata as a side effect of re-encoding. This tool is the lossless option, and it lets you inspect first.
 
