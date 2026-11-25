@@ -58,6 +58,13 @@ Combines PDFs, splits one into several files, or extracts pages into a new PDF. 
 - A PDF that needs a password to open asks for it in its own row. The output is not password protected.
 - Uses the same qpdf engine as the other PDF tools (`--empty --pages`), fetched from jsDelivr the first time you run a job.
 
+### Image Converter
+
+Converts JPG, PNG, WebP, HEIC and AVIF images to JPG, PNG or WebP, one or many at a time, with a ZIP download for batches.
+
+- The pixel size is kept. JPG and WebP have a quality setting, PNG is lossless, and transparent areas become white or black when the result is a JPG.
+- Uses the same codecs as the Image Size Reducer, loaded only when needed. The size change is shown for every file, including increases, and a file converted to its own format is flagged as re-encoded.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
