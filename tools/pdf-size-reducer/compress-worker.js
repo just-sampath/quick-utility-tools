@@ -1,10 +1,5 @@
 importScripts("../../assets/js/qpdf.js");
 
-const PRESETS = {
-  lossless: null,
-  balanced: { quality: 75, maxSide: 2000 },
-  small: { quality: 55, maxSide: 1300 },
-};
 const STRUCTURE = ["--object-streams=generate", "--compress-streams=y", "--recompress-flate", "--compression-level=9"];
 let codecs = null;
 
@@ -26,14 +21,19 @@ function channels(objects, colorSpace) {
   return 0;
 }
 
-function candidates(objects, maxSide) {
+function targetScale(opts, w, h) {
+  const scale = opts.unit === "percent" ? opts.size / 100 : opts.size / Math.max(w, h);
+  return scale < 1 ? scale : 1;
+}
+
+function candidates(objects, opts) {
   const found = [];
   for (const [key, obj] of Object.entries(objects)) {
     const d = obj.stream?.dict;
     if (!d || d["/Subtype"] !== "/Image" || d["/Filter"] !== "/DCTDecode") continue;
     if (d["/BitsPerComponent"] !== 8 || d["/ImageMask"] || d["/Decode"] || d["/DecodeParms"] || Array.isArray(d["/Mask"])) continue;
     const { "/Width": w, "/Height": h } = d;
-    if (typeof w !== "number" || typeof h !== "number" || Math.max(w, h) <= maxSide) continue;
+    if (typeof w !== "number" || typeof h !== "number" || targetScale(opts, w, h) >= 1) continue;
     const n = channels(objects, d["/ColorSpace"]);
     if (n !== 1 && n !== 3) continue;
     found.push({ key, num: key.match(/^obj:(\d+) (\d+) R$/), dict: d, gray: n === 1 });
@@ -61,7 +61,7 @@ async function resizeImage(raw, target, opts) {
     bitmap.close();
     return null;
   }
-  const scale = opts.maxSide / Math.max(bitmap.width, bitmap.height);
+  const scale = targetScale(opts, bitmap.width, bitmap.height);
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
   const ctx = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
@@ -75,7 +75,7 @@ async function resizeImage(raw, target, opts) {
 async function downsample(q, pw, src, dest, opts, progress) {
   if (!succeeded(qpdfExec(q, [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=none", src, "/job/dicts.json"]))) return 0;
   const [header, objects] = readJson(q, "/job/dicts.json").qpdf;
-  const targets = candidates(objects, opts.maxSide);
+  const targets = candidates(objects, opts);
   if (!targets.length) return 0;
 
   const exportArgs = [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=file", "--json-stream-prefix=/job/s", "--decode-level=none"];
@@ -108,9 +108,8 @@ async function downsample(q, pw, src, dest, opts, progress) {
   return succeeded(qpdfExec(q, [...pw, src, "--update-from-json=/job/update.json", dest])) ? count : 0;
 }
 
-async function compress(q, bytes, password, preset, progress) {
+async function compress(q, bytes, password, opts, progress) {
   const pw = password ? ["--password=" + password] : [];
-  const opts = PRESETS[preset];
   qpdfClearJob(q);
   q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
   let src = "/job/in.pdf";
@@ -132,10 +131,15 @@ async function compress(q, bytes, password, preset, progress) {
 }
 
 self.onmessage = async (e) => {
-  const { id, bytes, password, preset } = e.data;
+  const { id, bytes, password, preset, unit, size, quality } = e.data;
+  const opts = preset === "lossless" ? null : {
+    unit: unit === "percent" ? "percent" : "pixels",
+    size: Math.max(1, Number(size) || 2000),
+    quality: Math.min(100, Math.max(1, Math.round(Number(quality)) || 75)),
+  };
   try {
     const q = await loadQpdf();
-    const r = await compress(q, bytes, password, preset, (progress) => self.postMessage({ id, progress }));
+    const r = await compress(q, bytes, password, opts, (progress) => self.postMessage({ id, progress }));
     qpdfClearJob(q);
     if (r.out) {
       self.postMessage({ id, ok: true, bytes: r.out, resized: r.resized }, [r.out.buffer]);
