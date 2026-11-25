@@ -40,6 +40,16 @@ Makes PDFs smaller while keeping text selectable and any password protection in 
 - **Balanced** (quality 75, longest side 2000 px) and **Smallest** (quality 55, 1300 px) also recompress images and scale down larger JPEG images. **Custom** unlocks the same controls: image quality (1 to 100%) and a size limit, either a percentage of the original or a longest side in pixels. Editing any value switches to Custom, and images are never enlarged. Resolution (DPI), format and background aren't offered because PDF images have no fixed DPI until placed on a page, and the output stays a PDF. The images go out through qpdf's JSON interface, get resized in a worker with MozJPEG, and are written back with qpdf.
 - Uses the same qpdf engine as the password remover, plus MozJPEG when images need resizing.
 
+### PDF Merge, Split and Extract
+
+Combines PDFs, splits one into several files, or extracts pages into a new PDF. Pages are copied as they are, so text stays selectable and images stay original.
+
+- **Merge** joins two or more PDFs in the order listed. The arrows reorder them.
+- **Split** cuts one PDF into a file per page, a file per N pages, or a file per page range (for example `1-3,4-6,7-z`). Several files are delivered as one ZIP.
+- **Extract** copies the pages you list (for example `1-3,5,8-z`, where `z` is the last page) into a new PDF. Ranges are checked against the page count first.
+- A PDF that needs a password to open asks for it in its own row. The output is not password protected.
+- Uses the same qpdf engine as the other PDF tools (`--empty --pages`), fetched from jsDelivr the first time you run a job.
+
 ## Run locally
 
 There's no build step and no npm install: plain HTML, CSS and ES modules. Third-party engines load from jsDelivr at pinned versions, only when a tool needs them.
@@ -62,6 +72,7 @@ assets/js/zip.js               small ZIP writer for "Download all"
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/image-size-reducer/      tool page, UI script and compress worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
+tools/pdf-merge-split/          tool page, UI script and merge/split worker
 tools/pdf-page-organizer/      tool page, UI script and organize worker (reorder, rotate, delete pages)
 ```
 
