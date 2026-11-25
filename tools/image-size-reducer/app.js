@@ -14,10 +14,14 @@ const dz = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const fileList = document.getElementById("fileList");
 const options = document.getElementById("options");
-const customField = document.getElementById("customField");
 const qualityInput = document.getElementById("qualityInput");
-const qualityValue = document.getElementById("qualityValue");
-const sizeSelect = document.getElementById("sizeSelect");
+const unitSelect = document.getElementById("unitSelect");
+const widthInput = document.getElementById("widthInput");
+const heightInput = document.getElementById("heightInput");
+const widthUnit = document.getElementById("widthUnit");
+const heightUnit = document.getElementById("heightUnit");
+const lockBtn = document.getElementById("lockBtn");
+const dpiInput = document.getElementById("dpiInput");
 const formatSelect = document.getElementById("formatSelect");
 const compressBtn = document.getElementById("compressBtn");
 const addBtn = document.getElementById("addBtn");
@@ -33,23 +37,19 @@ const template = document.getElementById("itemTemplate");
 const runner = createJobRunner("./compress-worker.js", "module");
 const { showMsg, hideMsg } = createStatus(document.getElementById("msg"));
 
-const PRESETS = {
-  high: { quality: 85, colors: 0 },
-  balanced: { quality: 75, colors: 256 },
-  small: { quality: 60, colors: 64 },
-};
-
 const ERRORS = {
   decode: "Couldn't read this image.",
   avif: "This browser can't open AVIF images.",
   heic: "Couldn't read this HEIC image.",
   engine: "The compression engine failed to load. Check your connection and try again.",
-  crashed: "Ran out of memory on this image. Try a smaller maximum size.",
+  crashed: "Ran out of memory on this image. Try a smaller size.",
 };
 
 let items = [];
 let batch = 0;
 let zipUrl = null;
+let reference = null;
+let driver = "w";
 
 async function sniff(file) {
   const b = new Uint8Array(await file.slice(0, 32).arrayBuffer());
@@ -64,11 +64,105 @@ async function sniff(file) {
   return null;
 }
 
+function isLocked() {
+  return lockBtn.getAttribute("aria-pressed") === "true";
+}
+
+function setLocked(on) {
+  lockBtn.setAttribute("aria-pressed", String(on));
+  lockBtn.querySelector(".icon-locked").hidden = !on;
+  lockBtn.querySelector(".icon-unlocked").hidden = on;
+}
+
+function numberOf(input) {
+  const v = input.value.trim();
+  return v === "" ? 0 : Number(v);
+}
+
+function syncLinked() {
+  if (!isLocked()) return;
+  const from = driver === "w" ? widthInput : heightInput;
+  const to = driver === "w" ? heightInput : widthInput;
+  const v = numberOf(from);
+  if (!(v > 0)) return;
+  if (unitSelect.value === "percent") {
+    to.value = String(v);
+  } else if (reference) {
+    const ratio = driver === "w" ? reference.height / reference.width : reference.width / reference.height;
+    to.value = String(Math.max(1, Math.round(v * ratio)));
+  } else {
+    to.value = "";
+  }
+}
+
+function changeUnit() {
+  const pixels = unitSelect.value === "pixels";
+  const w = numberOf(widthInput);
+  const h = numberOf(heightInput);
+  widthUnit.textContent = heightUnit.textContent = pixels ? "px" : "%";
+  if (reference) {
+    if (pixels) {
+      widthInput.value = String(Math.max(1, Math.round((reference.width * (w || 100)) / 100)));
+      heightInput.value = String(Math.max(1, Math.round((reference.height * (h || 100)) / 100)));
+    } else {
+      widthInput.value = String(Math.max(1, Math.round(((w || reference.width) / reference.width) * 100)));
+      heightInput.value = String(Math.max(1, Math.round(((h || reference.height) / reference.height) * 100)));
+    }
+  } else {
+    widthInput.value = pixels ? "" : "100";
+    heightInput.value = pixels ? "" : "100";
+  }
+  widthInput.placeholder = heightInput.placeholder = pixels ? "Auto" : "";
+}
+
+async function setReference() {
+  reference = null;
+  for (const item of items) {
+    try {
+      const bitmap = await createImageBitmap(item.file, { imageOrientation: "from-image" });
+      reference = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      break;
+    } catch {
+      continue;
+    }
+  }
+  if (unitSelect.value === "pixels" && reference && !numberOf(widthInput) && !numberOf(heightInput)) {
+    widthInput.value = String(reference.width);
+    heightInput.value = String(reference.height);
+    driver = "w";
+  }
+  syncLinked();
+}
+
 function currentSettings() {
-  const preset = document.querySelector('input[name="preset"]:checked').value;
-  const q = Number(qualityInput.value);
-  const base = preset === "custom" ? { quality: q, colors: q >= 95 ? 0 : Math.max(16, Math.round(q * 2.56)) } : PRESETS[preset];
-  return { ...base, maxSide: Number(sizeSelect.value), format: formatSelect.value };
+  const unit = unitSelect.value;
+  const w = numberOf(widthInput);
+  const h = numberOf(heightInput);
+  const dpi = numberOf(dpiInput);
+  const max = unit === "percent" ? 1000 : 16384;
+  if (!Number.isInteger(w) || !Number.isInteger(h) || w < 0 || h < 0 || w > max || h > max) {
+    return { error: `Enter whole numbers for width and height, up to ${max}${unit === "percent" ? "%" : " px"}.` };
+  }
+  if (unit === "pixels" && !w && !h) return { error: "Enter a width or a height in pixels." };
+  if (unit === "percent" && (!w || !h)) return { error: "Enter a width and height percentage." };
+  const quality = numberOf(qualityInput);
+  if (!Number.isInteger(quality) || quality < 1 || quality > 100) return { error: "Quality must be a whole number from 1 to 100." };
+  if (dpiInput.value.trim() !== "" && (!Number.isInteger(dpi) || dpi < 1 || dpi > 2400)) {
+    return { error: "Resolution must be a whole number from 1 to 2400 DPI." };
+  }
+  return {
+    unit,
+    width: w,
+    height: h,
+    lock: isLocked(),
+    driver,
+    quality,
+    colors: quality >= 95 ? 0 : Math.max(16, Math.round(quality * 2.56)),
+    dpi,
+    background: document.querySelector('input[name="background"]:checked').value,
+    format: formatSelect.value,
+  };
 }
 
 function setStatus(item, text, kind = "") {
@@ -122,6 +216,7 @@ function addFiles(files) {
       hideMsg();
     }
     refresh();
+    setReference();
   });
 }
 
@@ -130,6 +225,7 @@ function removeItem(item) {
   item.li.remove();
   items = items.filter((i) => i !== item);
   refresh();
+  setReference();
   if (items.some((i) => i.output)) showSummary();
 }
 
@@ -138,7 +234,7 @@ function refresh() {
   dz.hidden = has;
   fileList.hidden = !has;
   options.hidden = !has;
-  compressBtn.textContent = items.length > 1 ? `Compress ${items.length} images` : "Compress";
+  compressBtn.textContent = items.length > 1 ? `Resize ${items.length} Images` : "Resize Image";
   if (!has) result.hidden = true;
 }
 
@@ -165,6 +261,7 @@ function finishItem(item, r) {
   item.download.hidden = false;
   const notes = [`${formatBytes(item.file.size)} → ${formatBytes(blob.size)}`, `${r.width}×${r.height}`];
   if (r.capped) notes.push("scaled down to fit browser limits");
+  if (r.dpiSkipped) notes.push("WebP can't store a resolution");
   setStatus(item, notes.join(" · "));
   const pct = Math.min(99, Math.round((1 - blob.size / item.file.size) * 100));
   item.saving.textContent = r.kept ? "Already optimized" : pct > 0 ? `−${pct}%` : `+${-pct}%`;
@@ -192,8 +289,12 @@ function showSummary() {
 }
 
 async function compressAll() {
-  const id = ++batch;
   const settings = currentSettings();
+  if (settings.error) {
+    showMsg("error", settings.error);
+    return;
+  }
+  const id = ++batch;
   busy(true);
   hideMsg();
   result.hidden = true;
@@ -217,7 +318,7 @@ async function compressAll() {
   }
   busy(false);
   showSummary();
-  if (items.some((i) => !i.output)) showMsg("error", "Some images couldn't be compressed. See the list above.");
+  if (items.some((i) => !i.output)) showMsg("error", "Some images couldn't be processed. See the list above.");
   result.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
@@ -246,13 +347,18 @@ options.addEventListener("drop", (e) => {
   if (!compressBtn.disabled && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]);
 });
 
-for (const radio of document.querySelectorAll('input[name="preset"]')) {
-  radio.addEventListener("change", () => {
-    customField.hidden = radio.value !== "custom" || !radio.checked;
-  });
-}
-qualityInput.addEventListener("input", () => {
-  qualityValue.textContent = qualityInput.value;
+unitSelect.addEventListener("change", changeUnit);
+widthInput.addEventListener("input", () => {
+  driver = "w";
+  syncLinked();
+});
+heightInput.addEventListener("input", () => {
+  driver = "h";
+  syncLinked();
+});
+lockBtn.addEventListener("click", () => {
+  setLocked(!isLocked());
+  syncLinked();
 });
 
 compressBtn.addEventListener("click", compressAll);
