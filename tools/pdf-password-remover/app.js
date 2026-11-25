@@ -55,8 +55,10 @@ async function decrypt(password) {
   }
   if (r.needsPassword) {
     showPasswordForm();
+  } else if (!r.wrongPassword) {
+    showMsg("error", "This PDF couldn't be read. It may be damaged.");
   } else {
-    showMsg("error", "Incorrect password, or the file is damaged. Double-check and try again.");
+    showMsg("error", "Incorrect password. Double-check and try again.");
     pwInput.focus();
     pwInput.select();
   }

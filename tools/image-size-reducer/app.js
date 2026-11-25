@@ -31,6 +31,9 @@ const resultTitle = document.getElementById("resultTitle");
 const statBefore = document.getElementById("statBefore");
 const statAfter = document.getElementById("statAfter");
 const statSaved = document.getElementById("statSaved");
+const sizeNote = document.getElementById("sizeNote");
+const dpiNote = document.getElementById("dpiNote");
+const resultFlag = document.getElementById("resultFlag");
 const zipBtn = document.getElementById("zipBtn");
 const template = document.getElementById("itemTemplate");
 
@@ -49,19 +52,61 @@ let items = [];
 let batch = 0;
 let zipUrl = null;
 let reference = null;
+let mixed = false;
+let autoFilled = false;
+let refToken = 0;
 let driver = "w";
 
-async function sniff(file) {
-  const b = new Uint8Array(await file.slice(0, 32).arrayBuffer());
-  const text = (from, to) => String.fromCharCode(...b.subarray(from, to));
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
-  if (text(1, 4) === "PNG") return "png";
-  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") return "webp";
-  if (text(4, 8) === "ftyp") {
-    if (text(8, 32).includes("avif") || text(8, 12) === "avis") return "avif";
-    if (/^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(text(8, 12))) return "heic";
+const PROBE_BYTES = 524288;
+
+function pngInfo(b) {
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const info = { animated: false, dpi: 0 };
+  let pos = 8;
+  while (pos + 8 <= b.length) {
+    const len = view.getUint32(pos);
+    const type = String.fromCharCode(...b.subarray(pos + 4, pos + 8));
+    if (type === "IDAT") break;
+    if (type === "acTL") info.animated = true;
+    if (type === "pHYs" && pos + 17 <= b.length && b[pos + 16] === 1) info.dpi = Math.round(view.getUint32(pos + 8) * 0.0254);
+    pos += 12 + len;
   }
-  return null;
+  return info;
+}
+
+function jpegDpi(b) {
+  let pos = 2;
+  while (pos + 4 <= b.length && b[pos] === 0xff) {
+    const marker = b[pos + 1];
+    if (marker === 0xda || marker === 0xd9) break;
+    const len = (b[pos + 2] << 8) | b[pos + 3];
+    const isJfif = marker === 0xe0 && String.fromCharCode(...b.subarray(pos + 4, pos + 8)) === "JFIF" && len >= 16 && pos + 14 <= b.length;
+    if (isJfif) {
+      const units = b[pos + 11];
+      const x = (b[pos + 12] << 8) | b[pos + 13];
+      if (units === 1) return x;
+      if (units === 2) return Math.round(x * 2.54);
+      return 0;
+    }
+    pos += 2 + len;
+  }
+  return 0;
+}
+
+async function probe(file) {
+  const b = new Uint8Array(await file.slice(0, PROBE_BYTES).arrayBuffer());
+  const text = (from, to) => String.fromCharCode(...b.subarray(from, to));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: "jpeg", animated: false, dpi: jpegDpi(b) };
+  if (text(1, 4) === "PNG") return { kind: "png", ...pngInfo(b) };
+  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") {
+    return { kind: "webp", animated: text(12, 16) === "VP8X" && (b[20] & 2) === 2, dpi: 0 };
+  }
+  if (text(0, 6) === "GIF87a" || text(0, 6) === "GIF89a") return { kind: "gif" };
+  if (text(4, 8) === "ftyp") {
+    if (text(8, 32).includes("avif") || text(8, 12) === "avis") return { kind: "avif", animated: false, dpi: 0 };
+    if (/^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(text(8, 12))) return { kind: "heic", animated: false, dpi: 0 };
+  }
+  return { kind: null };
 }
 
 function isLocked() {
@@ -87,6 +132,8 @@ function syncLinked() {
   if (!(v > 0)) return;
   if (unitSelect.value === "percent") {
     to.value = String(v);
+  } else if (mixed) {
+    to.value = "";
   } else if (reference) {
     const ratio = driver === "w" ? reference.height / reference.width : reference.width / reference.height;
     to.value = String(Math.max(1, Math.round(v * ratio)));
@@ -95,15 +142,29 @@ function syncLinked() {
   }
 }
 
+function updateSizeNote() {
+  const pixels = unitSelect.value === "pixels";
+  let text = "";
+  if (pixels && mixed) {
+    text = isLocked()
+      ? `These images have different shapes. Each one is scaled to the ${driver === "w" ? "width" : "height"} you enter and keeps its own aspect ratio, so the ${driver === "w" ? "heights" : "widths"} differ.`
+      : "These images have different shapes. Every image is resized to exactly this width and height, so some will look stretched.";
+  }
+  sizeNote.textContent = text;
+  sizeNote.hidden = !text;
+}
+
 function changeUnit() {
   const pixels = unitSelect.value === "pixels";
   const w = numberOf(widthInput);
   const h = numberOf(heightInput);
   widthUnit.textContent = heightUnit.textContent = pixels ? "px" : "%";
+  autoFilled = false;
   if (reference) {
     if (pixels) {
+      autoFilled = (w || 100) === 100 && (h || 100) === 100;
       widthInput.value = String(Math.max(1, Math.round((reference.width * (w || 100)) / 100)));
-      heightInput.value = String(Math.max(1, Math.round((reference.height * (h || 100)) / 100)));
+      heightInput.value = mixed && isLocked() ? "" : String(Math.max(1, Math.round((reference.height * (h || 100)) / 100)));
     } else {
       widthInput.value = String(Math.max(1, Math.round(((w || reference.width) / reference.width) * 100)));
       heightInput.value = String(Math.max(1, Math.round(((h || reference.height) / reference.height) * 100)));
@@ -113,26 +174,65 @@ function changeUnit() {
     heightInput.value = pixels ? "" : "100";
   }
   widthInput.placeholder = heightInput.placeholder = pixels ? "Auto" : "";
+  updateSizeNote();
+}
+
+function readDims(file) {
+  return createImageBitmap(file, { imageOrientation: "from-image" }).then(
+    (bitmap) => {
+      const dims = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      return dims;
+    },
+    () => null,
+  );
+}
+
+function updateDpiNote() {
+  const known = items.map((i) => i.dpi).filter((d) => d > 0);
+  let text = "";
+  if (known.length) {
+    const lo = Math.min(...known);
+    const hi = Math.max(...known);
+    const who = items.length > 1 ? "Original files" : "Original";
+    text = lo === hi ? `${who}: ${lo} DPI.` : `${who}: ${lo} to ${hi} DPI.`;
+    text += " The result has no resolution unless you enter one.";
+  }
+  dpiNote.textContent = text;
+  dpiNote.hidden = !text;
 }
 
 async function setReference() {
-  reference = null;
-  for (const item of items) {
-    try {
-      const bitmap = await createImageBitmap(item.file, { imageOrientation: "from-image" });
-      reference = { width: bitmap.width, height: bitmap.height };
-      bitmap.close();
-      break;
-    } catch {
-      continue;
+  const token = ++refToken;
+  for (const item of [...items]) {
+    if (item.dims !== undefined) continue;
+    const dims = await readDims(item.file);
+    if (token !== refToken) return;
+    item.dims = dims;
+  }
+  const known = items.filter((i) => i.dims).map((i) => i.dims);
+  reference = known[0] || null;
+  mixed = known.some((d) => Math.abs(d.width / d.height - known[0].width / known[0].height) > 0.01 * (known[0].width / known[0].height));
+  if (unitSelect.value === "pixels") {
+    const empty = !numberOf(widthInput) && !numberOf(heightInput);
+    if (reference && (empty || autoFilled)) {
+      widthInput.value = String(reference.width);
+      heightInput.value = mixed && isLocked() ? "" : String(reference.height);
+      autoFilled = true;
+      driver = "w";
+    } else if (!reference && autoFilled) {
+      widthInput.value = heightInput.value = "";
+      autoFilled = false;
     }
   }
-  if (unitSelect.value === "pixels" && reference && !numberOf(widthInput) && !numberOf(heightInput)) {
-    widthInput.value = String(reference.width);
-    heightInput.value = String(reference.height);
-    driver = "w";
-  }
   syncLinked();
+  updateSizeNote();
+}
+
+function pngColors(quality) {
+  if (quality >= 90) return 0;
+  if (quality >= 75) return 256;
+  return Math.max(16, Math.round(256 * Math.pow(quality / 75, 1.6)));
 }
 
 function currentSettings() {
@@ -158,11 +258,17 @@ function currentSettings() {
     lock: isLocked(),
     driver,
     quality,
-    colors: quality >= 95 ? 0 : Math.max(16, Math.round(quality * 2.56)),
+    colors: pngColors(quality),
     dpi,
     background: document.querySelector('input[name="background"]:checked').value,
     format: formatSelect.value,
   };
+}
+
+const ANIM_NOTE = "animated, only the first frame is kept";
+
+function idleText(item) {
+  return item.animated ? `${formatBytes(item.file.size)} · ${ANIM_NOTE}` : formatBytes(item.file.size);
 }
 
 function setStatus(item, text, kind = "") {
@@ -185,13 +291,16 @@ function clearItemResult(item) {
   item.output = null;
   item.saving.hidden = true;
   item.download.hidden = true;
+  item.flag.hidden = true;
   item.li.classList.remove("is-error");
 }
 
 function addFiles(files) {
-  Promise.all(files.map(async (file) => ({ file, kind: await sniff(file) }))).then((sniffed) => {
-    const skipped = sniffed.filter((s) => !s.kind).length;
-    for (const { file, kind } of sniffed.filter((s) => s.kind)) {
+  Promise.all(files.map(async (file) => ({ file, ...(await probe(file)) }))).then((sniffed) => {
+    const accepted = sniffed.filter((s) => s.kind && s.kind !== "gif");
+    const skipped = sniffed.length - accepted.length;
+    const gifs = sniffed.filter((s) => s.kind === "gif").length;
+    for (const { file, kind, animated, dpi } of accepted) {
       const li = template.content.firstElementChild.cloneNode(true);
       const item = {
         file,
@@ -200,22 +309,28 @@ function addFiles(files) {
         status: li.querySelector(".file-size"),
         saving: li.querySelector(".saving"),
         download: li.querySelector("a"),
+        flag: li.querySelector(".file-flag"),
+        animated,
+        dpi,
+        dims: undefined,
         url: null,
         output: null,
         spinner: null,
       };
       li.querySelector(".file-name").textContent = file.name;
       li.querySelector("button").addEventListener("click", () => removeItem(item));
-      setStatus(item, formatBytes(file.size));
+      setStatus(item, idleText(item));
       items.push(item);
       fileList.append(li);
     }
     if (skipped) {
-      showMsg("error", `Skipped ${skipped} file${skipped > 1 ? "s" : ""} that ${skipped > 1 ? "aren't" : "isn't a"} JPG, PNG, WebP or HEIC image${skipped > 1 ? "s" : ""}.`);
+      const gifNote = gifs ? ` GIF images aren't supported, because only the first frame would be kept.` : "";
+      showMsg("error", `Skipped ${skipped} file${skipped > 1 ? "s" : ""} that ${skipped > 1 ? "aren't" : "isn't a"} JPG, PNG, WebP or HEIC image${skipped > 1 ? "s" : ""}.${gifNote}`);
     } else {
       hideMsg();
     }
     refresh();
+    updateDpiNote();
     setReference();
   });
 }
@@ -225,6 +340,7 @@ function removeItem(item) {
   item.li.remove();
   items = items.filter((i) => i !== item);
   refresh();
+  updateDpiNote();
   setReference();
   if (items.some((i) => i.output)) showSummary();
 }
@@ -260,9 +376,14 @@ function finishItem(item, r) {
   item.download.download = name;
   item.download.hidden = false;
   const notes = [`${formatBytes(item.file.size)} → ${formatBytes(blob.size)}`, `${r.width}×${r.height}`];
-  if (r.capped) notes.push("scaled down to fit browser limits");
+  if (item.animated && !r.kept) notes.push(ANIM_NOTE);
   if (r.dpiSkipped) notes.push("WebP can't store a resolution");
   setStatus(item, notes.join(" · "));
+  item.capped = r.capped;
+  if (r.capped) {
+    item.flag.textContent = `Scaled down to ${r.width}×${r.height} (about 16.7 megapixels, the browser limit). The result is smaller than the size you asked for.`;
+    item.flag.hidden = false;
+  }
   const pct = Math.min(99, Math.round((1 - blob.size / item.file.size) * 100));
   item.saving.textContent = r.kept ? "Already optimized" : pct > 0 ? `−${pct}%` : `+${-pct}%`;
   item.saving.classList.toggle("is-none", r.kept || pct <= 0);
@@ -281,6 +402,11 @@ function showSummary() {
   statBefore.textContent = formatBytes(before);
   statAfter.textContent = formatBytes(after);
   statSaved.textContent = after < before ? `${formatBytes(before - after)} (${Math.min(99, Math.round((1 - after / before) * 100))}%)` : "nothing";
+  const capped = done.filter((i) => i.capped);
+  resultFlag.textContent = capped.length
+    ? `${capped.length === 1 ? "1 image was" : `${capped.length} images were`} scaled down to about 16.7 megapixels, the browser limit, so ${capped.length === 1 ? "it is" : "they are"} smaller than the size you asked for: ${capped.map((i) => i.file.name).join(", ")}.`
+    : "";
+  resultFlag.hidden = !capped.length;
   if (zipUrl) URL.revokeObjectURL(zipUrl);
   zipUrl = null;
   zipBtn.href = "#";
@@ -300,6 +426,7 @@ async function compressAll() {
   result.hidden = true;
   for (const item of items) {
     clearItemResult(item);
+    item.capped = false;
     setStatus(item, "Waiting…");
   }
   for (const item of [...items]) {
@@ -327,12 +454,19 @@ function clearAll() {
   runner.cancel();
   for (const item of items) clearItemResult(item);
   items = [];
+  refToken++;
+  if (autoFilled) widthInput.value = heightInput.value = "";
+  reference = null;
+  mixed = false;
+  autoFilled = false;
   fileList.replaceChildren();
   if (zipUrl) URL.revokeObjectURL(zipUrl);
   zipUrl = null;
   busy(false);
   hideMsg();
   refresh();
+  updateDpiNote();
+  updateSizeNote();
 }
 
 if (typeof OffscreenCanvas === "undefined") {
@@ -350,15 +484,21 @@ options.addEventListener("drop", (e) => {
 unitSelect.addEventListener("change", changeUnit);
 widthInput.addEventListener("input", () => {
   driver = "w";
+  autoFilled = false;
   syncLinked();
+  updateSizeNote();
+  updateSizeNote();
 });
 heightInput.addEventListener("input", () => {
   driver = "h";
+  autoFilled = false;
   syncLinked();
+  updateSizeNote();
 });
 lockBtn.addEventListener("click", () => {
   setLocked(!isLocked());
   syncLinked();
+  updateSizeNote();
 });
 
 compressBtn.addEventListener("click", compressAll);

@@ -13,6 +13,8 @@
   --danger-soft: rgba(220, 38, 38, 0.08);
   --success: #15803d;
   --success-soft: rgba(21, 128, 61, 0.08);
+  --warn: #a15c07;
+  --warn-soft: rgba(217, 119, 6, 0.1);
   --shadow: 0 1px 2px rgba(23, 26, 33, 0.05), 0 8px 24px rgba(23, 26, 33, 0.06);
   --gutter: clamp(16px, 4vw, 32px);
   --header-h: 69px;
@@ -35,6 +37,8 @@
   --danger-soft: rgba(248, 113, 113, 0.1);
   --success: #4ade80;
   --success-soft: rgba(74, 222, 128, 0.09);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.1);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
@@ -753,11 +757,6 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
-.range-value {
-  color: var(--muted);
-  font-weight: 500;
-}
-
 .file-list {
   display: flex;
   flex-direction: column;
@@ -795,6 +794,22 @@ input[type="range"] {
 
 .file-item .spinner {
   margin-top: 0;
+}
+
+.file-flag,
+.flag {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.flag {
+  margin: 0;
 }
 
 .saving {
