@@ -16,12 +16,16 @@ Removes the password from a PDF you have the password for. Text stays selectable
 
 ### Image Size Reducer
 
-Shrinks JPG, PNG, WebP and HEIC images, one or many at a time, with optional resizing and format conversion. Results can be downloaded one by one or as a ZIP.
+Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be downloaded one by one or as a ZIP.
+
+- Choose the new size by percent or pixels. The padlock keeps each image's aspect ratio, and unlocking it sets an exact width and height.
+- Choose the format (JPG, WebP or PNG), the quality (1 to 100) and an optional resolution in DPI. JPG and PNG files store the DPI value, WebP files can't.
+- The background color (white or black) fills transparent areas when an image becomes a JPG.
 
 - JPG uses MozJPEG, WebP uses libwebp, and PNG is color-reduced with [image-q](https://github.com/ibezkrovnyi/image-quantization) and then optimized with oxipng. The codecs come from [jSquash](https://github.com/jamsinclair/jSquash).
 - HEIC files open natively where the browser supports it (Safari). Elsewhere [libheif-js](https://github.com/catdad-experiments/libheif-js) decodes them.
 - Each codec downloads only when an image needs it (MozJPEG about 250 KB, WebP 280 KB, oxipng 165 KB, image-q 100 KB, libheif 2 MB).
-- Re-encoding strips photo metadata such as camera model and GPS location. If compressing would make an image bigger and you didn't ask to resize or convert it, you get the original back.
+- Re-encoding strips photo metadata such as camera model and GPS location. If compressing would make an image bigger and you didn't ask to resize, convert or change the resolution of it, you get the original back.
 
 ### PDF Size Reducer
 

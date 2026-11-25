@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f5f6f9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="Shrink JPG, PNG, WebP and HEIC images right in your browser. Resize, convert and compress in bulk. Nothing is uploaded.">
+  <meta name="description" content="Shrink JPG, PNG, WebP and HEIC images right in your browser. Choose the size, format, quality, resolution and background color, in bulk. Nothing is uploaded.">
   <title>Image Size Reducer | Quick Utility Tools</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
   <script>
@@ -33,7 +33,7 @@
   <main class="tool-main container tool-wide">
     <div class="tool-head">
       <h1>Image Size Reducer</h1>
-      <p>Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. You can also resize them or change the format.</p>
+      <p>Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Choose a new size, format, quality, resolution and background color.</p>
     </div>
 
     <div class="panel">
@@ -47,35 +47,38 @@
       <ul class="file-list" id="fileList" hidden></ul>
 
       <div class="options" id="options" hidden>
-        <fieldset class="field">
-          <legend class="field-label">Compression</legend>
-          <div class="segmented">
-            <label><input class="visually-hidden" type="radio" name="preset" value="high"><span>High quality</span></label>
-            <label><input class="visually-hidden" type="radio" name="preset" value="balanced" checked><span>Balanced</span></label>
-            <label><input class="visually-hidden" type="radio" name="preset" value="small"><span>Smallest</span></label>
-            <label><input class="visually-hidden" type="radio" name="preset" value="custom"><span>Custom</span></label>
-          </div>
-        </fieldset>
+        <div class="field">
+          <label class="field-label" for="unitSelect">Resize by</label>
+          <select id="unitSelect">
+            <option value="percent">Percent</option>
+            <option value="pixels">Pixels</option>
+          </select>
+        </div>
 
-        <div class="field" id="customField" hidden>
-          <label class="field-label" for="qualityInput">Quality <span class="range-value" id="qualityValue">70</span></label>
-          <input type="range" id="qualityInput" min="10" max="95" step="5" value="70">
+        <div class="size-row">
+          <div class="field">
+            <label class="field-label" for="widthInput">Width</label>
+            <div class="input-suffix">
+              <input type="number" id="widthInput" inputmode="numeric" min="1" step="1" value="100">
+              <span id="widthUnit">%</span>
+            </div>
+          </div>
+          <button class="lock-btn" id="lockBtn" type="button" aria-pressed="true" aria-label="Keep aspect ratio">
+            <svg class="icon-locked" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            <svg class="icon-unlocked" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>
+          </button>
+          <div class="field">
+            <label class="field-label" for="heightInput">Height</label>
+            <div class="input-suffix">
+              <input type="number" id="heightInput" inputmode="numeric" min="1" step="1" value="100">
+              <span id="heightUnit">%</span>
+            </div>
+          </div>
         </div>
 
         <div class="field-row">
           <div class="field">
-            <label class="field-label" for="sizeSelect">Maximum size</label>
-            <select id="sizeSelect">
-              <option value="0">Keep original size</option>
-              <option value="3840">3840 px (4K)</option>
-              <option value="2560">2560 px</option>
-              <option value="1920">1920 px (Full HD)</option>
-              <option value="1280">1280 px</option>
-              <option value="800">800 px</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="formatSelect">Output format</label>
+            <label class="field-label" for="formatSelect">Format</label>
             <select id="formatSelect">
               <option value="same">Same as original</option>
               <option value="jpeg">JPG</option>
@@ -83,12 +86,36 @@
               <option value="png">PNG</option>
             </select>
           </div>
+          <div class="field">
+            <label class="field-label" for="qualityInput">Quality</label>
+            <div class="input-suffix">
+              <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="75">
+              <span>%</span>
+            </div>
+          </div>
         </div>
 
-        <p class="hint">Photo details such as camera model and GPS location are removed. HEIC images are saved as JPG unless you pick another format.</p>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label" for="dpiInput">Resolution</label>
+            <div class="input-suffix">
+              <input type="number" id="dpiInput" inputmode="numeric" min="1" max="2400" step="1" placeholder="Original">
+              <span>DPI</span>
+            </div>
+          </div>
+          <fieldset class="field">
+            <legend class="field-label">Background color</legend>
+            <div class="swatches">
+              <label><input class="visually-hidden" type="radio" name="background" value="white" checked><span class="swatch swatch-white"></span><span class="visually-hidden">White</span></label>
+              <label><input class="visually-hidden" type="radio" name="background" value="black"><span class="swatch swatch-black"></span><span class="visually-hidden">Black</span></label>
+            </div>
+          </fieldset>
+        </div>
+
+        <p class="hint">Quality 100 keeps the most detail. The background color fills transparent areas when the result is a JPG. WebP files can't store a resolution. Photo details such as camera model and GPS location are removed. HEIC images are saved as JPG unless you pick another format.</p>
 
         <div class="actions">
-          <button class="btn btn-primary" id="compressBtn" type="button">Compress</button>
+          <button class="btn btn-primary" id="compressBtn" type="button">Resize Image</button>
           <button class="btn btn-secondary" id="addBtn" type="button">Add images</button>
           <button class="link-btn" id="clearBtn" type="button">Clear all</button>
         </div>
