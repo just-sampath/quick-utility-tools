@@ -102,6 +102,29 @@ function hasImageMetadata(bytes, type) {
   throw new Error("unknown type " + type);
 }
 
+// Tag numbers in a TIFF block's first IFD.
+function tiffTags(b, t) {
+  const le = b.subarray(t, t + 2).toString("latin1") === "II";
+  const u16 = (o) => (le ? b.readUInt16LE(o) : b.readUInt16BE(o));
+  const u32 = (o) => (le ? b.readUInt32LE(o) : b.readUInt32BE(o));
+  const ifd = t + u32(t + 4);
+  const tags = [];
+  for (let n = 0; n < u16(ifd); n++) tags.push(u16(ifd + 2 + n * 12));
+  return tags;
+}
+
+// Tag numbers in a PNG's eXIf chunk, or [] when it has none.
+function pngExifTags(bytes) {
+  const b = Buffer.from(bytes);
+  let i = 8;
+  while (i + 8 < b.length) {
+    const len = b.readUInt32BE(i);
+    if (b.subarray(i + 4, i + 8).toString("latin1") === "eXIf") return tiffTags(b, i + 8);
+    i += 12 + len;
+  }
+  return [];
+}
+
 // Tag numbers in a JPEG's EXIF IFD0, or [] when it has no EXIF.
 function jpegExifTags(bytes) {
   const b = Buffer.from(bytes);
@@ -111,14 +134,7 @@ function jpegExifTags(bytes) {
     if (marker === 0xda) break;
     const len = b.readUInt16BE(i + 2);
     if (marker === 0xe1 && b.subarray(i + 4, i + 10).toString("latin1").startsWith("Exif")) {
-      const t = i + 10;
-      const le = b.subarray(t, t + 2).toString("latin1") === "II";
-      const u16 = (o) => (le ? b.readUInt16LE(o) : b.readUInt16BE(o));
-      const u32 = (o) => (le ? b.readUInt32LE(o) : b.readUInt32BE(o));
-      const ifd = t + u32(t + 4);
-      const tags = [];
-      for (let n = 0; n < u16(ifd); n++) tags.push(u16(ifd + 2 + n * 12));
-      return tags;
+      return tiffTags(b, i + 10);
     }
     i += 2 + len;
   }
@@ -546,8 +562,9 @@ for (const keep of [true, false]) {
     for (let i = 0; i < 3; i++) {
       const { bytes, name } = await download(page, links.nth(i), `stripped-${keep ? "keep" : "drop"}-${files[i]}`);
       const type = files[i].split(".")[1];
-      if (type === "jpg") {
-        const tags = jpegExifTags(bytes);
+      if (type === "jpg" || (type === "png" && keep)) {
+        const tags = type === "jpg" ? jpegExifTags(bytes) : pngExifTags(bytes);
+        if (type === "png") expect(!/(tEXt|iTXt|zTXt)/.test(Buffer.from(bytes).toString("latin1")), `${name} still has text chunks`);
         const expected = keep ? "274" : "";
         expect(tags.join(",") === expected, `${name} EXIF tags left: [${tags}], expected [${expected}]`);
         out.push(`${name}: ${keep ? "only the orientation tag left" : "no EXIF left"}`);
