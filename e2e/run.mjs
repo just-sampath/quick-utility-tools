@@ -102,6 +102,29 @@ function hasImageMetadata(bytes, type) {
   throw new Error("unknown type " + type);
 }
 
+// Tag numbers in a JPEG's EXIF IFD0, or [] when it has no EXIF.
+function jpegExifTags(bytes) {
+  const b = Buffer.from(bytes);
+  let i = 2;
+  while (i + 4 < b.length && b[i] === 0xff) {
+    const marker = b[i + 1];
+    if (marker === 0xda) break;
+    const len = b.readUInt16BE(i + 2);
+    if (marker === 0xe1 && b.subarray(i + 4, i + 10).toString("latin1").startsWith("Exif")) {
+      const t = i + 10;
+      const le = b.subarray(t, t + 2).toString("latin1") === "II";
+      const u16 = (o) => (le ? b.readUInt16LE(o) : b.readUInt16BE(o));
+      const u32 = (o) => (le ? b.readUInt32LE(o) : b.readUInt32BE(o));
+      const ifd = t + u32(t + 4);
+      const tags = [];
+      for (let n = 0; n < u16(ifd); n++) tags.push(u16(ifd + 2 + n * 12));
+      return tags;
+    }
+    i += 2 + len;
+  }
+  return [];
+}
+
 function expect(cond, message) {
   if (!cond) throw new Error(message);
 }
@@ -336,7 +359,8 @@ await test("PDF password remover: unlocked PDF", "pdf-password-remover", async (
   await page.setInputFiles("#fileInput", doc5);
   await page.waitForFunction(() => !document.getElementById("msg").hidden || !document.getElementById("result").hidden, null, { timeout: JOB_TIMEOUT });
   await page.waitForTimeout(1000);
-  return [`message: "${await msgText(page)}"`];
+  const title = (await page.locator("#result").isVisible()) ? (await page.locator("#result").innerText()).trim().split("\n")[0] : "";
+  return [`message: "${await msgText(page)}"`, `result: "${title}"`];
 });
 
 await test("PDF metadata editor: change title", "pdf-metadata-editor", async (page) => {
@@ -375,8 +399,13 @@ await test("Images to PDF: 5 formats on A4", "images-to-pdf", async (page) => {
   const { bytes } = await download(page, page.locator("#pdfBtn"), "images.pdf");
   const info = await pdfInfo(bytes);
   expect(info.pages === 5, `expected 5 pages, got ${info.pages}`);
-  for (const s of info.sizes) expect(Math.abs(s.width - 595.28) < 1 && Math.abs(s.height - 841.89) < 1, `page is ${s.width}x${s.height}, not A4`);
-  return [`5 A4 pages from JPG, PNG, WebP, BMP and GIF`];
+  // Wide images get a landscape A4 page, tall ones a portrait page.
+  for (const s of info.sizes) {
+    const [short, long] = [Math.min(s.width, s.height), Math.max(s.width, s.height)];
+    expect(Math.abs(short - 595.28) < 1 && Math.abs(long - 841.89) < 1, `page is ${s.width}x${s.height}, not A4`);
+    expect(s.width > s.height, `wide image got a portrait page (${s.width}x${s.height})`);
+  }
+  return [`5 landscape A4 pages from wide JPG, PNG, WebP, BMP and GIF`];
 });
 
 await test("Images to PDF: same size as each image", "images-to-pdf", async (page) => {
@@ -499,30 +528,41 @@ await test("Image crop: GIF and BMP open", "image-crop-rotate", async (page) => 
   return out;
 });
 
-await test("Image metadata: strip EXIF and GPS", "image-metadata", async (page) => {
-  const files = ["exif.jpg", "exif.png", "exif.webp"];
-  for (const f of files) {
-    const input = await fs.readFile(R(f));
-    expect(hasImageMetadata(input, f.split(".")[1]), `fixture ${f} has no metadata to remove`);
-  }
-  await page.setInputFiles("#fileInput", files.map(R));
-  await page.locator("#fileList li").nth(2).waitFor({ timeout: 30_000 });
-  const shown = (await page.locator("#fileList").innerText()).replace(/\s+/g, " ");
-  const gpsShown = /GPS|location/i.test(shown);
-  await page.click("#stripBtn");
-  await waitForResult(page);
-  const links = page.locator("#fileList li a[href]");
-  await links.nth(2).waitFor({ timeout: JOB_TIMEOUT });
-  const out = [];
-  for (let i = 0; i < 3; i++) {
-    const { bytes, name } = await download(page, links.nth(i), `stripped-${files[i]}`);
-    const type = files[i].split(".")[1];
-    expect(!hasImageMetadata(bytes, type), `${name} still has metadata`);
-    const info = imageInfo(bytes);
-    out.push(`${name} clean, ${info.width}x${info.height}`);
-  }
-  return [`GPS shown before removal: ${gpsShown ? "yes" : "no"}`, ...out];
-});
+for (const keep of [true, false]) {
+  await test(`Image metadata: strip, ${keep ? "keep" : "drop"} orientation`, "image-metadata", async (page) => {
+    const files = ["exif.jpg", "exif.png", "exif.webp"];
+    for (const f of files) {
+      const input = await fs.readFile(R(f));
+      expect(hasImageMetadata(input, f.split(".")[1]), `fixture ${f} has no metadata to remove`);
+    }
+    await page.setInputFiles("#fileInput", files.map(R));
+    await page.locator("#fileList li").nth(2).waitFor({ timeout: 30_000 });
+    if (!keep) await page.uncheck("#keepOrientation");
+    await page.click("#stripBtn");
+    await waitForResult(page);
+    const links = page.locator("#fileList li a[href]");
+    await links.nth(2).waitFor({ timeout: JOB_TIMEOUT });
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      const { bytes, name } = await download(page, links.nth(i), `stripped-${keep ? "keep" : "drop"}-${files[i]}`);
+      const type = files[i].split(".")[1];
+      if (type === "jpg") {
+        const tags = jpegExifTags(bytes);
+        const expected = keep ? "274" : "";
+        expect(tags.join(",") === expected, `${name} EXIF tags left: [${tags}], expected [${expected}]`);
+        out.push(`${name}: ${keep ? "only the orientation tag left" : "no EXIF left"}`);
+      } else {
+        expect(!hasImageMetadata(bytes, type), `${name} still has metadata`);
+        out.push(`${name}: clean`);
+      }
+      const info = imageInfo(bytes);
+      const src = imageInfo(await fs.readFile(R(files[i])));
+      expect(info.width === src.width && info.height === src.height, `${name} pixel size changed`);
+    }
+    out.push(`summary: "${(await page.locator("#fileList li").first().innerText()).replace(/\s+/g, " ").slice(0, 80)}"`);
+    return out;
+  });
+}
 
 // Optional: drop .heic files in fixtures/extra to test HEIC decoding.
 const extra = await fs.readdir(path.join(FIX, "extra")).catch(() => []);
@@ -576,12 +616,15 @@ await test("Home: filter and search", null, async (page) => {
   await page.click('button:has-text("All")');
   await page.keyboard.press("/");
   const focused = await page.evaluate(() => document.activeElement?.type === "search");
-  await page.keyboard.type("password");
+  await page.keyboard.type("merge");
   const search = await visible();
+  await page.fill('input[type="search"]', "password");
+  const group = await visible();
   expect(all === 11 && pdf === 7 && img === 4, `counts all ${all}, pdf ${pdf}, images ${img}`);
-  expect(search === 2, `search "password" shows ${search} tools`);
+  expect(search === 1, `search "merge" shows ${search} tools`);
+  expect(group === 4, `search "password" shows ${group} tools, expected the 4 in its group`);
   expect(focused, `"/" did not focus the search box`);
-  return [`All 11, PDF 7, Images 4`, `"/" focuses search; "password" finds 2`];
+  return [`All 11, PDF 7, Images 4`, `"/" focuses search; "merge" finds 1; "password" finds its group of 4`];
 });
 
 await browser.close();
