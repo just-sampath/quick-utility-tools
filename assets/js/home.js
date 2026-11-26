@@ -3,6 +3,7 @@ import { initTheme } from "./common.js";
 initTheme(document.querySelector(".theme-toggle"));
 
 const pills = [...document.querySelectorAll(".filter-pill[data-filter]")];
+const mainEl = document.querySelector("main");
 const searchInput = document.getElementById("toolSearch");
 const emptyEl = document.getElementById("toolEmpty");
 const emptyReset = document.getElementById("toolEmptyReset");
@@ -26,6 +27,7 @@ let activeFilter = "all";
 
 function applyFilters() {
   const terms = searchInput.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (mainEl) mainEl.dataset.filtered = String(terms.length > 0);
   let totalVisible = 0;
 
   for (const section of sections) {
