@@ -378,7 +378,7 @@ a {
 .hero p {
   color: var(--text-secondary);
   font-size: clamp(16px, 1.3vw, 19px);
-  max-width: 40ch;
+  max-width: 48ch;
   text-wrap: pretty;
   margin: 0;
 }
@@ -2179,6 +2179,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .tool-link:nth-child(even) {
     border-left: 1px solid var(--border);
   }
+  .tool-link:last-child:nth-child(odd) {
+    grid-column: span 2;
+  }
   .tool-head-main {
     gap: 16px;
   }
@@ -2241,6 +2244,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   }
   .tool-link:nth-child(even) {
     border-left: 0;
+  }
+  .tool-link:last-child:nth-child(odd) {
+    grid-column: auto;
   }
   .tool-wide .tool-head,
   .tool-wide .panel {
