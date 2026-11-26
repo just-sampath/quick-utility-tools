@@ -53,6 +53,15 @@ function localImports(rel, seen = new Set()) {
   return seen;
 }
 const pages = ["index.html", ...walk("tools", ".html")];
+
+function staticImports(rel, seen = new Set()) {
+  if (seen.has(rel)) return seen;
+  seen.add(rel);
+  for (const m of read(rel).matchAll(/^\s*(?:import|export)\s[^;]*?from\s*"(\.{1,2}\/[^"]+\.js)"|^\s*import\s*"(\.{1,2}\/[^"]+\.js)"/gm)) {
+    staticImports(path.normalize(path.join(path.dirname(rel), m[1] || m[2])), seen);
+  }
+  return seen;
+}
 const isClassic = (rel) => /^importScripts\(/m.test(read(rel)) || rel === path.join("assets", "js", "qpdf.js");
 
 await section("Syntax", () => {
@@ -87,6 +96,12 @@ await section("Pages", () => {
     const engine = workers.some((w) => /qpdf\.js|codecs\.js/.test(read(path.join(dir, w))));
     const cdn = csp.includes("https://cdn.jsdelivr.net") && csp.includes("'wasm-unsafe-eval'") && csp.includes("worker-src 'self'");
     check(`${rel} CSP ${engine ? "allows" : "does not allow"} the engine CDN`, engine ? cdn : !/jsdelivr|wasm-unsafe-eval|worker-src/.test(csp));
+    const entry = (/<script type="module" src="([^"]+)"/.exec(html) || [])[1];
+    if (entry) {
+      const want = [...staticImports(path.normalize(path.join(dir, entry)))].slice(1).sort();
+      const have = [...html.matchAll(/<link rel="modulepreload" href="([^"]+)">/g)].map((m) => path.normalize(path.join(dir, m[1]))).sort();
+      check(`${rel} preloads exactly its static module imports`, want.join() === have.join(), `want ${want.join(", ")}; have ${have.join(", ")}`);
+    }
     if (dir === ".") continue;
     const files = new Set();
     for (const f of fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(".js"))) localImports(path.join(dir, f), files);

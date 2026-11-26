@@ -7,21 +7,25 @@ const mainEl = document.querySelector("main");
 const searchInput = document.getElementById("toolSearch");
 const emptyEl = document.getElementById("toolEmpty");
 const emptyReset = document.getElementById("toolEmptyReset");
-const sections = [...document.querySelectorAll(".tool-section[data-category]")].map((el) => ({
-  el,
-  category: el.dataset.category,
-  countEl: el.querySelector(".section-count"),
-  cards: [...el.querySelectorAll(".card")].map((card) => ({
-    el: card,
-    haystack: [
-      card.querySelector("h3")?.textContent || "",
-      card.querySelector("p")?.textContent || "",
-      card.dataset.keywords || "",
-    ]
-      .join(" ")
-      .toLowerCase(),
-  })),
-}));
+const sections = [...document.querySelectorAll(".tool-group")].map((el) => {
+  const groupTitle = el.querySelector(".group-title")?.firstChild?.textContent || "";
+  return {
+    el,
+    countEl: el.querySelector(".section-count"),
+    cards: [...el.querySelectorAll(".tool-link")].map((card) => ({
+      el: card,
+      category: card.dataset.category,
+      haystack: [
+        card.querySelector(".tool-link-name")?.textContent || "",
+        card.querySelector(".tool-link-desc")?.textContent || "",
+        card.dataset.keywords || "",
+        groupTitle,
+      ]
+        .join(" ")
+        .toLowerCase(),
+    })),
+  };
+});
 
 let activeFilter = "all";
 
@@ -31,10 +35,10 @@ function applyFilters() {
   let totalVisible = 0;
 
   for (const section of sections) {
-    const categoryMatch = activeFilter === "all" || section.category === activeFilter;
     let visibleInSection = 0;
 
     for (const card of section.cards) {
+      const categoryMatch = activeFilter === "all" || card.category === activeFilter;
       const matches = categoryMatch && terms.every((term) => card.haystack.includes(term));
       card.el.hidden = !matches;
       if (matches) visibleInSection++;

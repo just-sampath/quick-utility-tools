@@ -15,6 +15,7 @@
       localStorage.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   </script>
   <link rel="preload" href="./assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="modulepreload" href="./assets/js/common.js">
   <link rel="stylesheet" href="./assets/css/style.css">
 </head>
 <body>
@@ -45,8 +46,8 @@
       <div class="home-toolbar">
         <div class="filter-pills" role="group" aria-label="Filter by category">
           <button class="filter-pill" type="button" data-filter="all" aria-pressed="true">All <span class="pill-count">11</span></button>
-          <button class="filter-pill" type="button" data-filter="pdf" aria-pressed="false">PDF <span class="pill-count">7</span></button>
-          <button class="filter-pill" type="button" data-filter="image" aria-pressed="false">Images <span class="pill-count">4</span></button>
+          <button class="filter-pill" type="button" data-filter="pdf" aria-pressed="false"><span class="pill-dot" aria-hidden="true"></span>PDF <span class="pill-count">7</span></button>
+          <button class="filter-pill" type="button" data-filter="image" aria-pressed="false"><span class="pill-dot" aria-hidden="true"></span>Images <span class="pill-count">4</span></button>
         </div>
         <div class="home-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
@@ -56,152 +57,142 @@
       </div>
     </section>
 
-    <section class="container tool-section" data-category="pdf">
-      <div class="section-head">
-        <h2 class="section-title">PDF Tools <span class="section-count">7</span></h2>
-      </div>
-      <div class="tool-grid">
-        <a class="card" href="./tools/pdf-password-remover/index.html" data-keywords="decrypt unlock remove password unprotect">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="14" height="10" rx="2"/><path d="M13 11V7a4 4 0 0 1 8 0v2"/></svg>
-          </span>
-          <h3>PDF Password Remover</h3>
-          <p>Remove the password from a protected PDF. Text and images aren't changed.</p>
-          <div class="card-tags">
-            <span class="card-tag">No quality loss</span>
-            <span class="card-tag">Selectable text</span>
-          </div>
-        </a>
+    <div class="container tool-groups">
+      <section class="tool-group" aria-labelledby="group-compress">
+        <div class="group-head">
+          <h2 id="group-compress" class="group-title">Compress <span class="section-count">2</span></h2>
+          <p class="group-blurb">Make PDFs and images smaller to send or upload.</p>
+        </div>
+        <div class="tool-list">
+          <a class="tool-link" href="./tools/pdf-size-reducer/index.html" data-category="pdf" data-keywords="compress shrink optimize smaller reduce lossless keeps text">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m8 13 4 4 4-4M12 17V9"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Size Reducer</span>
+              <span class="tool-link-desc">Make large PDFs smaller by shrinking oversized images. Text stays selectable.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/image-size-reducer/index.html" data-category="image" data-keywords="compress shrink resize dpi optimize jpg png webp heic avif many at once">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">Image Size Reducer</span>
+              <span class="tool-link-desc">Shrink JPG, PNG, WebP, HEIC and AVIF images in bulk. Resize or convert them as you go.</span>
+            </span>
+          </a>
+        </div>
+      </section>
 
-        <a class="card" href="./tools/pdf-password-adder/index.html" data-keywords="encrypt lock protect aes permissions restrict">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 16.5v1.8"/></svg>
-          </span>
-          <h3>PDF Password Adder</h3>
-          <p>Lock a PDF with a password using AES-256 encryption, and optionally block printing, copying or editing.</p>
-          <div class="card-tags">
-            <span class="card-tag">AES-256</span>
-            <span class="card-tag">Permissions</span>
-          </div>
-        </a>
+      <section class="tool-group" aria-labelledby="group-convert">
+        <div class="group-head">
+          <h2 id="group-convert" class="group-title">Convert <span class="section-count">2</span></h2>
+          <p class="group-blurb">Turn photos into a PDF, or switch an image to another format.</p>
+        </div>
+        <div class="tool-list">
+          <a class="tool-link" href="./tools/images-to-pdf/index.html" data-category="pdf" data-keywords="jpg png webp heic convert photos combine pdf a4 or letter">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><circle cx="10" cy="13" r="1.5"/><path d="m18 19-3-3-5 3"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">Images to PDF</span>
+              <span class="tool-link-desc">Combine JPG, PNG, WebP and HEIC images into one PDF. Reorder pages and pick a page size.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/image-converter/index.html" data-category="image" data-keywords="convert format swap heic avif jpg png webp and many at once">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11V8a2 2 0 0 1 2-2h13"/><path d="m16 3 3 3-3 3"/><path d="M20 13v3a2 2 0 0 1-2 2H5"/><path d="m8 21-3-3 3-3"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">Image Converter</span>
+              <span class="tool-link-desc">Convert HEIC, AVIF, PNG, WebP and JPG images to JPG, PNG or WebP in bulk.</span>
+            </span>
+          </a>
+        </div>
+      </section>
 
-        <a class="card" href="./tools/pdf-size-reducer/index.html" data-keywords="compress shrink optimize smaller reduce lossless">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m8 13 4 4 4-4M12 17V9"/></svg>
-          </span>
-          <h3>PDF Size Reducer</h3>
-          <p>Make large PDFs smaller by shrinking oversized images. Text stays selectable.</p>
-          <div class="card-tags">
-            <span class="card-tag">Lossless</span>
-            <span class="card-tag">Keeps text</span>
-          </div>
-        </a>
+      <section class="tool-group" aria-labelledby="group-edit">
+        <div class="group-head">
+          <h2 id="group-edit" class="group-title">Edit <span class="section-count">3</span></h2>
+          <p class="group-blurb">Combine, split and reorder PDF pages, or crop and rotate a photo.</p>
+        </div>
+        <div class="tool-list">
+          <a class="tool-link" href="./tools/pdf-merge-split/index.html" data-category="pdf" data-keywords="combine join separate pages split merge extract">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><path d="M8 12h8m-3-3 3 3-3 3"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Merge, Split &amp; Extract</span>
+              <span class="tool-link-desc">Combine PDFs, split one into several files, or pull selected pages into a new PDF.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/pdf-page-organizer/index.html" data-category="pdf" data-keywords="reorder rearrange rotate delete pages thumbnails drag and drop">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="9" rx="1"/><path d="M7 16h10m-3-3 3 3-3 3"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Page Organizer</span>
+              <span class="tool-link-desc">Reorder, rotate and delete PDF pages with a thumbnail grid. Text stays selectable.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/image-crop-rotate/index.html" data-category="image" data-keywords="crop rotate straighten flip mirror trim aspect ratio ratios">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">Image Crop, Rotate &amp; Flip</span>
+              <span class="tool-link-desc">Crop, rotate, straighten and flip an image. Drag the crop box or type exact sizes.</span>
+            </span>
+          </a>
+        </div>
+      </section>
 
-        <a class="card" href="./tools/pdf-merge-split/index.html" data-keywords="combine join separate pages split merge extract">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><path d="M8 12h8m-3-3 3 3-3 3"/></svg>
-          </span>
-          <h3>PDF Merge, Split &amp; Extract</h3>
-          <p>Combine PDFs, split one into several files, or pull selected pages into a new PDF.</p>
-          <div class="card-tags">
-            <span class="card-tag">Merge</span>
-            <span class="card-tag">Split</span>
-            <span class="card-tag">Extract</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/pdf-page-organizer/index.html" data-keywords="reorder rearrange rotate delete pages thumbnails">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="9" rx="1"/><path d="M7 16h10m-3-3 3 3-3 3"/></svg>
-          </span>
-          <h3>PDF Page Organizer</h3>
-          <p>Reorder, rotate and delete PDF pages with a thumbnail grid. Text stays selectable.</p>
-          <div class="card-tags">
-            <span class="card-tag">Drag &amp; drop</span>
-            <span class="card-tag">Rotate</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/pdf-metadata-editor/index.html" data-keywords="title author properties info xmp strip clean">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
-          </span>
-          <h3>PDF Metadata Editor</h3>
-          <p>Edit a PDF's title, author and other details, or strip all metadata before sharing.</p>
-          <div class="card-tags">
-            <span class="card-tag">Title &amp; author</span>
-            <span class="card-tag">Remove all</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/images-to-pdf/index.html" data-keywords="jpg png webp heic convert photos combine pdf">
-          <span class="card-icon card-icon-pdf">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><circle cx="10" cy="13" r="1.5"/><path d="m18 19-3-3-5 3"/></svg>
-          </span>
-          <h3>Images to PDF</h3>
-          <p>Combine JPG, PNG, WebP and HEIC images into one PDF. Reorder pages and pick a page size.</p>
-          <div class="card-tags">
-            <span class="card-tag">JPG, PNG, HEIC</span>
-            <span class="card-tag">A4 or Letter</span>
-          </div>
-        </a>
-      </div>
-    </section>
-
-    <section class="container tool-section" data-category="image">
-      <div class="section-head">
-        <h2 class="section-title">Image Tools <span class="section-count">4</span></h2>
-      </div>
-      <div class="tool-grid">
-        <a class="card" href="./tools/image-size-reducer/index.html" data-keywords="compress shrink resize dpi optimize jpg png webp heic avif">
-          <span class="card-icon card-icon-image">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-          </span>
-          <h3>Image Size Reducer</h3>
-          <p>Shrink JPG, PNG, WebP, HEIC and AVIF images in bulk. Resize or convert them as you go.</p>
-          <div class="card-tags">
-            <span class="card-tag">Many at once</span>
-            <span class="card-tag">Resize</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/image-converter/index.html" data-keywords="convert format swap heic avif jpg png webp">
-          <span class="card-icon card-icon-image">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11V8a2 2 0 0 1 2-2h13"/><path d="m16 3 3 3-3 3"/><path d="M20 13v3a2 2 0 0 1-2 2H5"/><path d="m8 21-3-3 3-3"/></svg>
-          </span>
-          <h3>Image Converter</h3>
-          <p>Convert HEIC, AVIF, PNG, WebP and JPG images to JPG, PNG or WebP in bulk.</p>
-          <div class="card-tags">
-            <span class="card-tag">HEIC and AVIF</span>
-            <span class="card-tag">Many at once</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/image-crop-rotate/index.html" data-keywords="crop rotate straighten flip mirror trim aspect ratio">
-          <span class="card-icon card-icon-image">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
-          </span>
-          <h3>Image Crop, Rotate &amp; Flip</h3>
-          <p>Crop, rotate, straighten and flip an image. Drag the crop box or type exact sizes.</p>
-          <div class="card-tags">
-            <span class="card-tag">Straighten</span>
-            <span class="card-tag">Aspect ratios</span>
-          </div>
-        </a>
-
-        <a class="card" href="./tools/image-metadata/index.html" data-keywords="exif gps camera strip clean privacy remove metadata">
-          <span class="card-icon card-icon-image">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
-          </span>
-          <h3>Image Metadata Viewer &amp; Remover</h3>
-          <p>See the camera, date and GPS data hidden in JPG, PNG and WebP photos, then remove it without re-encoding.</p>
-          <div class="card-tags">
-            <span class="card-tag">Camera &amp; GPS</span>
-            <span class="card-tag">No re-encoding</span>
-          </div>
-        </a>
-      </div>
-    </section>
+      <section class="tool-group" aria-labelledby="group-protect">
+        <div class="group-head">
+          <h2 id="group-protect" class="group-title">Passwords and privacy <span class="section-count">4</span></h2>
+          <p class="group-blurb">Lock or unlock a PDF, and remove hidden details before you share.</p>
+        </div>
+        <div class="tool-list">
+          <a class="tool-link" href="./tools/pdf-password-remover/index.html" data-category="pdf" data-keywords="decrypt unlock remove password unprotect no quality loss selectable text">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="14" height="10" rx="2"/><path d="M13 11V7a4 4 0 0 1 8 0v2"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Password Remover</span>
+              <span class="tool-link-desc">Remove the password from a protected PDF. Text and images aren't changed.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/pdf-password-adder/index.html" data-category="pdf" data-keywords="encrypt lock protect aes permissions restrict aes-256">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="15.5" r="1.2" fill="currentColor" stroke="none"/><path d="M12 16.5v1.8"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Password Adder</span>
+              <span class="tool-link-desc">Lock a PDF with a password using AES-256 encryption, and optionally block printing, copying or editing.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/pdf-metadata-editor/index.html" data-category="pdf" data-keywords="title author properties info xmp strip clean and remove all">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">PDF Metadata Editor</span>
+              <span class="tool-link-desc">Edit a PDF's title, author and other details, or strip all metadata before sharing.</span>
+            </span>
+          </a>
+          <a class="tool-link" href="./tools/image-metadata/index.html" data-category="image" data-keywords="exif gps camera strip clean privacy remove metadata and no re-encoding">
+            <span class="tool-link-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+            </span>
+            <span class="tool-link-text">
+              <span class="tool-link-name">Image Metadata Viewer &amp; Remover</span>
+              <span class="tool-link-desc">See the camera, date and GPS data hidden in JPG, PNG and WebP photos, then remove it without re-encoding.</span>
+            </span>
+          </a>
+        </div>
+      </section>
+    </div>
 
     <div class="container">
       <div id="toolEmpty" class="home-empty" hidden>
