@@ -1,20 +1,12 @@
-import { decodeHeic } from "../../assets/js/codecs.js";
+import { decodeImage, sniffImage, capSize, JobError, MAX_PIXELS } from "../../assets/js/codecs.js";
 import { createPdf, flate } from "./pdf-writer.js";
 
-const MAX_PIXELS = 16777216;
 const PX_TO_PT = 0.75;
 const PAGES = { a4: [595.28, 841.89], letter: [612, 792] };
 
-class JobError extends Error {
-  constructor(code) {
-    super(code);
-    this.code = code;
-  }
-}
-
 function jpegInfo(b) {
   if (b[0] !== 0xff || b[1] !== 0xd8) return null;
-  const info = { components: 0, width: 0, height: 0, orientation: 1, adobe: false };
+  const info = { components: 0, width: 0, height: 0, orientation: 1 };
   let pos = 2;
   while (pos + 4 <= b.length && b[pos] === 0xff) {
     const marker = b[pos + 1];
@@ -44,7 +36,6 @@ function jpegInfo(b) {
         }
       }
     }
-    if (marker === 0xee) info.adobe = true;
     const isSof = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
     if (isSof) {
       info.baselineOrProgressive = marker === 0xc0 || marker === 0xc1 || marker === 0xc2;
@@ -59,30 +50,9 @@ function jpegInfo(b) {
   return null;
 }
 
-async function decodeBitmap(file, heic) {
-  try {
-    return await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    if (!heic) throw new JobError("decode");
-  }
-  try {
-    return await createImageBitmap(await decodeHeic(await file.arrayBuffer()));
-  } catch {
-    throw new JobError("heic");
-  }
-}
-
-function isHeic(bytes) {
-  const text = String.fromCharCode(...bytes.subarray(4, 12));
-  return text.startsWith("ftyp") && /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(text.slice(4, 8));
-}
-
-async function rasterize(file, head) {
-  let bitmap = await decodeBitmap(file, isHeic(head));
-  let { width, height } = bitmap;
-  const scale = Math.min(1, Math.sqrt(MAX_PIXELS / (width * height)));
-  const w = Math.max(1, Math.round(width * scale));
-  const h = Math.max(1, Math.round(height * scale));
+async function rasterize(file, head, progress) {
+  const bitmap = await decodeImage(file, sniffImage(head).kind, progress);
+  const { width: w, height: h, capped } = capSize(bitmap.width, bitmap.height);
   const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext("2d");
   ctx.drawImage(bitmap, 0, 0, w, h);
@@ -102,7 +72,7 @@ async function rasterize(file, head) {
   return {
     width: w,
     height: h,
-    scaled: scale < 1,
+    scaled: capped,
     colorSpace: "DeviceRGB",
     filter: "FlateDecode",
     data: await flate(rgb),
@@ -110,7 +80,7 @@ async function rasterize(file, head) {
   };
 }
 
-async function prepare(file) {
+async function prepare(file, progress) {
   const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
   if (head[0] === 0xff && head[1] === 0xd8) {
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -132,7 +102,7 @@ async function prepare(file) {
       };
     }
   }
-  return rasterize(file, head);
+  return rasterize(file, head, progress);
 }
 
 function layout(img, settings) {
@@ -167,7 +137,7 @@ async function convert(files, settings, id) {
     self.postMessage({ id, progress: `Adding image ${i + 1} of ${files.length}…` });
     let img;
     try {
-      img = await prepare(files[i]);
+      img = await prepare(files[i], (progress) => self.postMessage({ id, progress }));
     } catch (err) {
       skipped.push({ index: i, code: err instanceof JobError ? err.code : "decode" });
       continue;

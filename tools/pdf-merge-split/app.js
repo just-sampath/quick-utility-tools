@@ -179,7 +179,7 @@ async function inspect(item, password) {
     item.wrong = !!r.wrongPassword;
   } else {
     item.state = "error";
-    item.error = "This PDF couldn't be read. It may be damaged.";
+    item.error = "This PDF couldn't be read. It may be damaged. Saving a new copy from another PDF app often fixes this.";
   }
   setItemView(item);
   updateControls();
@@ -344,7 +344,7 @@ async function run() {
         ? "Failed to load the PDF engine. Check your connection and reload the page."
         : r.passwordProblem
           ? "A PDF in the list couldn't be opened with its password."
-          : "The PDF engine couldn't finish. A file may be damaged."
+          : "The PDF engine couldn't finish. A file may be damaged. Saving a new copy from another PDF app often fixes this."
     );
     return;
   }

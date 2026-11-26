@@ -24,6 +24,7 @@ const { showMsg, hideMsg } = createStatus(document.getElementById("msg"));
 
 const ERRORS = {
   decode: "Couldn't read this image.",
+  avif: "This browser can't open AVIF images.",
   heic: "Couldn't read this HEIC image.",
   none: "None of the images could be read.",
   crashed: "Ran out of memory. Try fewer or smaller images.",
@@ -68,6 +69,7 @@ function render() {
   convertBtn.disabled = busy || !items.length;
   addBtn.disabled = busy;
   clearBtn.disabled = busy;
+  fileInput.disabled = busy;
 }
 
 function move(item, delta) {
@@ -85,6 +87,7 @@ function changed() {
 }
 
 function addFiles(files) {
+  if (busy) return;
   const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name));
   if (images.length < files.length) showMsg("error", "Some files were skipped because they aren't images.");
   else hideMsg();

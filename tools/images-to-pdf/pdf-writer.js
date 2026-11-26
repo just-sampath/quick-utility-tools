@@ -1,12 +1,8 @@
 const enc = new TextEncoder();
 
-async function deflate(bytes) {
+export async function flate(bytes) {
   const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-export async function flate(bytes) {
-  return deflate(bytes);
 }
 
 export function createPdf() {

@@ -4,7 +4,7 @@ const CRC_TABLE = new Uint32Array(256).map((_, n) => {
   return c;
 });
 
-function crc32(bytes) {
+export function crc32(bytes) {
   let c = 0xffffffff;
   for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
@@ -59,4 +59,57 @@ export function makeZip(files) {
   end.setUint32(12, centralSize, true);
   end.setUint32(16, offset, true);
   return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+function uniqueNames(files) {
+  const used = new Set();
+  return files.map(({ name, blob }) => {
+    let unique = name;
+    for (let k = 1; used.has(unique); k++) unique = name.replace(/(\.[^.]+)?$/, ` (${k})$1`);
+    used.add(unique);
+    return { name: unique, blob };
+  });
+}
+
+export function bindZipButton(button, zipName, getFiles, onError) {
+  const label = button.textContent;
+  let url = null;
+  let preparing = false;
+  let token = 0;
+  button.addEventListener("click", (e) => {
+    if (url) return;
+    e.preventDefault();
+    if (preparing) return;
+    preparing = true;
+    const mine = ++token;
+    button.textContent = "Preparing ZIP…";
+    const files = uniqueNames(getFiles());
+    Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) })))
+      .then((entries) => {
+        if (mine !== token) return;
+        url = URL.createObjectURL(makeZip(entries));
+        button.href = url;
+        button.download = zipName;
+        button.textContent = label;
+        button.click();
+      })
+      .catch(() => {
+        if (mine !== token) return;
+        button.textContent = label;
+        onError();
+      })
+      .finally(() => {
+        if (mine === token) preparing = false;
+      });
+  });
+  return {
+    reset() {
+      token++;
+      preparing = false;
+      if (url) URL.revokeObjectURL(url);
+      url = null;
+      button.href = "#";
+      button.textContent = label;
+    },
+  };
 }

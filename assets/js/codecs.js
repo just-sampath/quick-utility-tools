@@ -194,3 +194,87 @@ export async function decodeHeic(bytes) {
   image.free?.();
   return new ImageData(data, width, height);
 }
+
+export const MAX_PIXELS = 16777216;
+
+export function capSize(width, height) {
+  if (width * height <= MAX_PIXELS) return { width, height, capped: false };
+  const shrink = Math.sqrt(MAX_PIXELS / (width * height));
+  return { width: Math.max(1, Math.floor(width * shrink)), height: Math.max(1, Math.floor(height * shrink)), capped: true };
+}
+
+export class JobError extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+  }
+}
+
+export async function decodeImage(file, kind, progress = () => {}) {
+  try {
+    return await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch {
+    if (kind !== "heic") throw new JobError(kind === "avif" ? "avif" : "decode");
+  }
+  progress("Loading the HEIC decoder (first time only)…");
+  try {
+    return await createImageBitmap(await decodeHeic(await file.arrayBuffer()));
+  } catch {
+    throw new JobError("heic");
+  }
+}
+
+const HEIC_BRANDS = /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/;
+const PROBE_BYTES = 524288;
+
+function pngInfo(b) {
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const info = { animated: false, dpi: 0 };
+  let pos = 8;
+  while (pos + 8 <= b.length) {
+    const len = view.getUint32(pos);
+    const type = String.fromCharCode(...b.subarray(pos + 4, pos + 8));
+    if (type === "IDAT") break;
+    if (type === "acTL") info.animated = true;
+    if (type === "pHYs" && pos + 17 <= b.length && b[pos + 16] === 1) info.dpi = Math.round(view.getUint32(pos + 8) * 0.0254);
+    pos += 12 + len;
+  }
+  return info;
+}
+
+function jpegDpi(b) {
+  let pos = 2;
+  while (pos + 4 <= b.length && b[pos] === 0xff) {
+    const marker = b[pos + 1];
+    if (marker === 0xda || marker === 0xd9) break;
+    const len = (b[pos + 2] << 8) | b[pos + 3];
+    const isJfif = marker === 0xe0 && String.fromCharCode(...b.subarray(pos + 4, pos + 8)) === "JFIF" && len >= 16 && pos + 14 <= b.length;
+    if (isJfif) {
+      const units = b[pos + 11];
+      const x = (b[pos + 12] << 8) | b[pos + 13];
+      if (units === 1) return x;
+      if (units === 2) return Math.round(x * 2.54);
+      return 0;
+    }
+    pos += 2 + len;
+  }
+  return 0;
+}
+
+export function sniffImage(b) {
+  const text = (from, to) => String.fromCharCode(...b.subarray(from, to));
+  const plain = { animated: false, dpi: 0 };
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { ...plain, kind: "jpeg", dpi: jpegDpi(b) };
+  if (text(1, 4) === "PNG") return { kind: "png", ...pngInfo(b) };
+  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") return { ...plain, kind: "webp", animated: text(12, 16) === "VP8X" && (b[20] & 2) === 2 };
+  if (text(0, 6) === "GIF87a" || text(0, 6) === "GIF89a") return { ...plain, kind: "gif" };
+  if (text(4, 8) === "ftyp") {
+    if (text(8, 32).includes("avif") || text(8, 12) === "avis") return { ...plain, kind: "avif" };
+    if (HEIC_BRANDS.test(text(8, 12))) return { ...plain, kind: "heic" };
+  }
+  return { ...plain, kind: null };
+}
+
+export async function sniffFile(file) {
+  return sniffImage(new Uint8Array(await file.slice(0, PROBE_BYTES).arrayBuffer()));
+}
