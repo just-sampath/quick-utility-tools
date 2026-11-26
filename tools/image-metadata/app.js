@@ -104,7 +104,7 @@ function renderDetails(item) {
     const onlyOrientation = item.meta.groups.length === 1 && isOrientationOnly(item.meta.groups[0]);
     note.textContent = onlyOrientation
       ? "All camera, date, and GPS metadata was removed. Only orientation was kept so this photo displays upright."
-      : "Cleaned output — only the kept items below remain in this file.";
+      : "Only the items below are left in this file.";
     box.append(note);
   }
   for (const group of item.meta.groups) {

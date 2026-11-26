@@ -599,7 +599,7 @@ saveBtn.addEventListener("click", async () => {
     $("statBefore").textContent = formatBytes(file.size);
     $("statAfter").textContent = formatBytes(blob.size);
     const notes = [];
-    if (k < 1) notes.push(`The result was scaled down from ${crop.w} × ${crop.h} px to stay within this tool's limit of 16 megapixels, just under the browser's canvas limit.`);
+    if (k < 1) notes.push(`The result was scaled down from ${crop.w} × ${crop.h} px to stay under this tool's limit of 16 megapixels.`);
     if (gotKind !== kind) notes.push(`This browser can't save ${kind === "webp" ? "WebP" : "JPG"} files, so the image was saved as ${gotKind.toUpperCase()}.`);
     if (blob.size > file.size) notes.push("The new file is larger than the original. Lower the quality or choose JPG or WebP to make it smaller.");
     resultFlag.textContent = notes.join(" ");
