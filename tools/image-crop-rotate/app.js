@@ -1,9 +1,18 @@
-import { initTheme, formatBytes, createStatus, downloadName, bindDropzone } from "../../assets/js/common.js";
+import {
+  initTheme,
+  formatBytes,
+  createStatus,
+  downloadName,
+  bindDropzone,
+  bindWorkspaceDrop,
+  bindRangeSync,
+} from "../../assets/js/common.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
 const $ = (id) => document.getElementById(id);
 const dz = $("dropzone");
+const panel = dz.closest(".panel");
 const fileInput = $("fileInput");
 const stage = $("stage");
 const view = $("view");
@@ -13,11 +22,14 @@ const options = $("options");
 const imageName = $("imageName");
 const angleInput = $("angleInput");
 const angleValue = $("angleValue");
+const angleReset = $("angleReset");
 const ratioSelect = $("ratioSelect");
 const cropInputs = { x: $("cropX"), y: $("cropY"), w: $("cropW"), h: $("cropH") };
 const formatSelect = $("formatSelect");
 const qualityField = $("qualityField");
+const qualityRange = $("qualityRange");
 const qualityInput = $("qualityInput");
+const bgField = $("bgField");
 const flipHBtn = $("flipHBtn");
 const flipVBtn = $("flipVBtn");
 const saveBtn = $("saveBtn");
@@ -29,6 +41,7 @@ const { showMsg, hideMsg } = createStatus($("msg"));
 const MAX_PIXELS = 16000000;
 const MIN_CROP = 8;
 const HANDLE_HIT = 24;
+const GUTTER = 12;
 const OUTPUT_TYPES = { jpeg: "image/jpeg", webp: "image/webp", png: "image/png" };
 const EXTENSIONS = { jpeg: "jpg", webp: "webp", png: "png" };
 
@@ -43,6 +56,7 @@ let scale = 1;
 let drag = null;
 let downloadUrl = null;
 let frame = 0;
+let resizeFrame = 0;
 let lastViewWidth = 0;
 let loadToken = 0;
 
@@ -54,9 +68,9 @@ function dims() {
   return { W: round(img.width * c + img.height * s), H: round(img.width * s + img.height * c) };
 }
 
-function paint(g, k, ox, oy) {
+function paint(g, k, ox, oy, tx = 0, ty = 0) {
   const { W, H } = dims();
-  g.setTransform(k, 0, 0, k, -ox * k, -oy * k);
+  g.setTransform(k, 0, 0, k, tx - ox * k, ty - oy * k);
   g.translate(W / 2, H / 2);
   g.scale(flipH ? -1 : 1, flipV ? -1 : 1);
   g.rotate(((quarter * 90 + fine) * Math.PI) / 180);
@@ -102,6 +116,7 @@ function syncInputs() {
   cropInputs.h.max = String(H);
   $("cropNote").textContent = `Values are in pixels. The picture is ${W} × ${H}.`;
   angleValue.textContent = `${fine}°`;
+  angleReset.disabled = fine === 0;
   flipHBtn.setAttribute("aria-pressed", String(flipH));
   flipVBtn.setAttribute("aria-pressed", String(flipV));
 }
@@ -115,18 +130,25 @@ function outputKind() {
 }
 
 function syncFormat() {
-  qualityField.hidden = outputKind() === "png";
+  const kind = outputKind();
+  qualityField.hidden = kind === "png";
+  bgField.hidden = kind !== "jpeg";
 }
 
 function layout() {
   if (!img) return;
   const { W, H } = dims();
-  const availW = Math.max(120, view.clientWidth);
+  const cs = getComputedStyle(view);
+  const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const availW = Math.max(120, view.clientWidth - padX);
   const maxH = Math.max(260, innerHeight * 0.65);
-  scale = Math.min(availW / W, maxH / H);
-  const cssW = Math.max(1, Math.round(W * scale));
-  const cssH = Math.max(1, Math.round(H * scale));
-  scale = cssW / W;
+  const maxImgW = Math.max(60, Math.floor(availW - GUTTER * 2));
+  const maxImgH = Math.max(60, Math.floor(maxH - GUTTER * 2));
+  scale = Math.min(maxImgW / W, maxImgH / H);
+  const imgCssW = Math.max(1, Math.round(W * scale));
+  const imgCssH = Math.max(1, Math.round(H * scale));
+  const cssW = imgCssW + GUTTER * 2;
+  const cssH = imgCssH + GUTTER * 2;
   const dpr = Math.min(devicePixelRatio || 1, 2);
   canvas.width = Math.round(cssW * dpr);
   canvas.height = Math.round(cssH * dpr);
@@ -147,26 +169,39 @@ function requestDraw() {
 function draw() {
   if (!img) return;
   const { W, H } = dims();
-  const dpr = canvas.width / Math.max(1, parseFloat(canvas.style.width) || canvas.width);
-  const k = (canvas.width / W);
+  const cssW = Math.max(1, parseFloat(canvas.style.width) || canvas.width);
+  const dpr = canvas.width / cssW;
+  const g = GUTTER * dpr;
+  const k = scale * dpr;
+  const imgW = W * k;
+  const imgH = H * k;
   const css = getComputedStyle(document.documentElement);
+
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = css.getPropertyValue("--surface-2").trim() || "#888";
+  ctx.fillStyle = css.getPropertyValue("--surface").trim() || "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(g, g, imgW, imgH);
+  ctx.clip();
+  ctx.fillStyle = css.getPropertyValue("--surface-2").trim() || "#888";
+  ctx.fillRect(g, g, imgW, imgH);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  paint(ctx, k, 0, 0);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  paint(ctx, k, 0, 0, g, g);
+  ctx.restore();
 
-  const x = crop.x * k;
-  const y = crop.y * k;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const x = g + crop.x * k;
+  const y = g + crop.y * k;
   const w = crop.w * k;
   const h = crop.h * k;
   ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-  ctx.fillRect(0, 0, canvas.width, y);
-  ctx.fillRect(0, y + h, canvas.width, canvas.height - y - h);
-  ctx.fillRect(0, y, x, h);
-  ctx.fillRect(x + w, y, canvas.width - x - w, h);
+  ctx.fillRect(g, g, imgW, y - g);
+  ctx.fillRect(g, y + h, imgW, g + imgH - (y + h));
+  ctx.fillRect(g, y, x - g, h);
+  ctx.fillRect(x + w, y, g + imgW - (x + w), h);
 
   ctx.lineWidth = Math.max(1, dpr);
   ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
@@ -244,7 +279,12 @@ const CURSORS = { n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize"
 
 function pointerPos(e) {
   const rect = canvas.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const cssW = parseFloat(canvas.style.width) || rect.width || 1;
+  const cssH = parseFloat(canvas.style.height) || rect.height || 1;
+  return {
+    x: ((e.clientX - rect.left) * cssW) / Math.max(1, rect.width) - GUTTER,
+    y: ((e.clientY - rect.top) * cssH) / Math.max(1, rect.height) - GUTTER,
+  };
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -422,6 +462,13 @@ angleInput.addEventListener("input", () => {
   transformChanged();
 });
 
+angleReset.addEventListener("click", () => {
+  if (fine === 0) return;
+  fine = 0;
+  angleInput.value = "0";
+  transformChanged();
+});
+
 ratioSelect.addEventListener("change", () => {
   clearResult();
   const r = ratioValue();
@@ -434,7 +481,7 @@ formatSelect.addEventListener("change", () => {
   clearResult();
   syncFormat();
 });
-qualityInput.addEventListener("change", clearResult);
+bindRangeSync(qualityRange, qualityInput, clearResult);
 for (const radio of document.querySelectorAll('input[name="background"]')) radio.addEventListener("change", clearResult);
 
 $("resetBtn").addEventListener("click", () => {
@@ -449,12 +496,23 @@ $("resetBtn").addEventListener("click", () => {
 
 $("newBtn").addEventListener("click", () => fileInput.click());
 
-new ResizeObserver(() => {
-  if (img && view.clientWidth !== lastViewWidth) layout();
-}).observe(view);
-addEventListener("orientationchange", () => setTimeout(layout, 200));
+function scheduleLayout() {
+  if (resizeFrame) cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    if (img && view.clientWidth !== lastViewWidth) layout();
+  });
+}
 
-async function loadFile(f) {
+new ResizeObserver(() => {
+  if (img && view.clientWidth !== lastViewWidth) scheduleLayout();
+}).observe(view);
+addEventListener("orientationchange", () => setTimeout(scheduleLayout, 200));
+new MutationObserver(() => {
+  if (img) requestDraw();
+}).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+async function loadFile(f, notice = "") {
   const token = ++loadToken;
   hideMsg();
   showMsg("info", "Opening image…", true);
@@ -484,17 +542,22 @@ async function loadFile(f) {
   dz.hidden = true;
   stage.hidden = false;
   options.hidden = false;
-  hideMsg();
+  if (notice) showMsg("info", notice);
+  else hideMsg();
   syncFormat();
   resetCrop();
   syncInputs();
   layout();
 }
 
-bindDropzone(dz, fileInput, (files) => {
-  loadFile(files[0]);
-  if (files.length > 1) setTimeout(() => showMsg("info", "Only the first image was opened. This tool edits one image at a time."), 0);
-});
+function handleFiles(files) {
+  if (!files.length) return;
+  const notice = files.length > 1 ? "Only the first image was opened. This tool edits one image at a time." : "";
+  loadFile(files[0], notice);
+}
+
+bindDropzone(dz, fileInput, handleFiles);
+bindWorkspaceDrop(panel, handleFiles, () => !!img);
 
 function drawBackground(g, w, h) {
   const bg = document.querySelector('input[name="background"]:checked').value;

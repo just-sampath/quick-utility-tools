@@ -1,4 +1,4 @@
-import { formatBytes, createJobRunner, createStatus, downloadName, bindDropzone } from "../../assets/js/common.js";
+import { formatBytes, createJobRunner, createStatus, downloadName, bindDropzone, initPasswordToggles } from "../../assets/js/common.js";
 import { isPdfFile, looksLikePdf } from "./files.js";
 import { NOT_PDF, BAD_PDF, ENGINE_CRASHED, ENGINE_FAILED, WRONG_PASSWORD, damaged } from "./messages.js";
 
@@ -40,6 +40,12 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
     hideMsg();
     if (password) {
       password.input.value = "";
+      password.input.type = "password";
+      const toggle = password.input.closest(".password-wrap")?.querySelector("[data-password-toggle]");
+      if (toggle) {
+        toggle.setAttribute("aria-pressed", "false");
+        toggle.setAttribute("aria-label", "Show password");
+      }
       password.form.hidden = true;
     }
     clearResult();
@@ -117,6 +123,7 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
   }
 
   bindDropzone(dz, fileInput, (files) => pick(files[0]));
+  initPasswordToggles();
 
   clearBtn.addEventListener("click", () => {
     reset();

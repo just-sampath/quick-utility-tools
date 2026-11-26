@@ -32,6 +32,7 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
       <h1>Images to PDF</h1>
       <p>Combine JPG, PNG, WebP and HEIC images into a single PDF. Put them in order, then pick a page size and margin.</p>
     </div>
@@ -43,6 +44,14 @@
         <strong>Choose images or drop them here</strong>
         <span>Your images stay on this device</span>
       </label>
+
+      <div class="file-list-bar" id="fileListBar" hidden>
+        <span class="file-list-count" id="fileCount"></span>
+        <div class="file-list-actions">
+          <button class="btn btn-secondary btn-sm" id="addBtn" type="button">Add images</button>
+          <button class="btn-danger-ghost" id="clearBtn" type="button">Clear all</button>
+        </div>
+      </div>
 
       <ul class="file-list" id="fileList" hidden></ul>
 
@@ -65,12 +74,14 @@
           </select>
         </div>
 
-        <p class="hint">Each image gets its own page. With A4 or US Letter, the page turns sideways for wide images and the image is scaled to fit. JPG photos are added without re-encoding, so quality is unchanged. Other formats are stored losslessly, so the PDF can be larger than the originals. Images over 16.7 megapixels are scaled down. Photo details such as camera model and GPS location are removed.</p>
+        <p class="hint">Each image gets its own page, automatically rotated to fit A4 or US Letter.</p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>JPG photos are added without re-encoding, so quality stays unchanged. Other formats are stored losslessly, which can make the PDF larger than the originals. Images over about 16.7 megapixels are scaled down, and photo details such as camera model and GPS location are removed.</p>
+        </details>
 
         <div class="actions">
           <button class="btn btn-primary" id="convertBtn" type="button">Create PDF</button>
-          <button class="btn btn-secondary" id="addBtn" type="button">Add images</button>
-          <button class="link-btn" id="clearBtn" type="button">Clear all</button>
         </div>
       </div>
 
@@ -99,11 +110,11 @@
         <div class="file-name"></div>
         <div class="file-size"></div>
       </div>
-      <div class="i2p-order">
-        <button class="btn btn-secondary btn-sm" type="button" data-move="-1" aria-label="Move up">&uarr;</button>
-        <button class="btn btn-secondary btn-sm" type="button" data-move="1" aria-label="Move down">&darr;</button>
+      <div class="order-controls">
+        <button class="icon-btn" type="button" data-move="-1" aria-label="Move up"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+        <button class="icon-btn" type="button" data-move="1" aria-label="Move down"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
-      <button class="link-btn" type="button" data-remove>Remove</button>
+      <button class="btn-danger-ghost" type="button" data-remove>Remove</button>
     </li>
   </template>
 

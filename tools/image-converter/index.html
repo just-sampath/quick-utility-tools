@@ -32,6 +32,7 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
       <h1>Image Converter</h1>
       <p>Converts JPG, PNG, WebP, HEIC and AVIF images to JPG, PNG or WebP, one or many at a time. The pixel size stays the same.</p>
     </div>
@@ -43,6 +44,14 @@
         <strong>Choose images or drop them here</strong>
         <span>Your images stay on this device</span>
       </label>
+
+      <div class="file-list-bar" id="fileListBar" hidden>
+        <span class="file-list-count" id="fileCount"></span>
+        <div class="file-list-actions">
+          <button class="btn btn-secondary btn-sm" id="addBtn" type="button">Add images</button>
+          <button class="btn-danger-ghost" id="clearBtn" type="button">Clear all</button>
+        </div>
+      </div>
 
       <ul class="file-list" id="fileList" hidden></ul>
 
@@ -56,30 +65,36 @@
           </select>
         </div>
 
-        <div class="field" id="qualityField">
-          <label class="field-label" for="qualityInput">Quality</label>
-          <div class="input-suffix">
-            <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="90">
-            <span>%</span>
+        <div class="field-row" id="formatOptionsRow">
+          <div class="field" id="qualityField">
+            <label class="field-label" for="qualityInput">Quality</label>
+            <div class="range-combo">
+              <input type="range" id="qualityRange" min="1" max="100" step="1" value="90" aria-label="Quality">
+              <div class="input-suffix">
+                <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="90">
+                <span>%</span>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <fieldset class="field" id="backgroundField">
-          <legend class="field-label">Background color</legend>
-          <div class="swatches">
-            <label><input class="visually-hidden" type="radio" name="background" value="white" checked><span class="swatch swatch-white"></span><span class="visually-hidden">White</span></label>
-            <label><input class="visually-hidden" type="radio" name="background" value="black"><span class="swatch swatch-black"></span><span class="visually-hidden">Black</span></label>
-          </div>
-        </fieldset>
+          <fieldset class="field" id="backgroundField">
+            <legend class="field-label">Background color</legend>
+            <div class="swatches">
+              <label><input class="visually-hidden" type="radio" name="background" value="white" checked><span class="swatch swatch-white"></span><span class="visually-hidden">White</span></label>
+              <label><input class="visually-hidden" type="radio" name="background" value="black"><span class="swatch swatch-black"></span><span class="visually-hidden">Black</span></label>
+            </div>
+          </fieldset>
+        </div>
 
         <p class="hint" id="formatNote"></p>
 
-        <p class="hint">Photo details such as camera model and GPS location are removed. Animated images keep only their first frame. Converting can make a file bigger, and the size change is shown for every image.</p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>Photo metadata (camera model, GPS location) is removed. Animated images keep only their first frame. Converting can make a file bigger, and the size change is shown for every image.</p>
+        </details>
 
         <div class="actions">
-          <button class="btn btn-primary" id="convertBtn" type="button">Convert Image</button>
-          <button class="btn btn-secondary" id="addBtn" type="button">Add images</button>
-          <button class="link-btn" id="clearBtn" type="button">Clear all</button>
+          <button class="btn btn-primary" id="convertBtn" type="button">Convert image</button>
         </div>
       </div>
 
@@ -95,7 +110,10 @@
           <span>After: <strong id="statAfter"></strong></span>
         </div>
         <p class="flag" id="resultFlag" hidden></p>
-        <a class="btn btn-primary" id="zipBtn" download>Download all as ZIP</a>
+        <div class="actions">
+          <a class="btn btn-primary" id="singleDownloadBtn" hidden>Download</a>
+          <a class="btn btn-primary" id="zipBtn" download hidden>Download all as ZIP</a>
+        </div>
       </div>
     </div>
   </main>
@@ -110,7 +128,7 @@
       </div>
       <span class="saving" hidden></span>
       <a class="btn btn-secondary btn-sm" hidden>Download</a>
-      <button class="link-btn" type="button" data-remove>Remove</button>
+      <button class="btn-danger-ghost" type="button" data-remove>Remove</button>
     </li>
   </template>
 

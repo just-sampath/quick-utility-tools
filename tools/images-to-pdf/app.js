@@ -1,10 +1,21 @@
-import { initTheme, formatBytes, createJobRunner, createStatus, bindDropzone, moveItem } from "../../assets/js/common.js";
+import {
+  initTheme,
+  formatBytes,
+  createJobRunner,
+  createStatus,
+  bindDropzone,
+  bindWorkspaceDrop,
+  moveItem,
+} from "../../assets/js/common.js";
 import { DECODE_ERRORS } from "../../core/image/messages.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
 const dz = document.getElementById("dropzone");
+const panel = dz.closest(".panel");
 const fileInput = document.getElementById("fileInput");
+const fileListBar = document.getElementById("fileListBar");
+const fileCount = document.getElementById("fileCount");
 const fileList = document.getElementById("fileList");
 const options = document.getElementById("options");
 const pageSelect = document.getElementById("pageSelect");
@@ -63,9 +74,13 @@ function render() {
     });
     fileList.append(li);
   });
-  fileList.hidden = !items.length;
-  options.hidden = !items.length;
-  convertBtn.disabled = busy || !items.length;
+  const has = items.length > 0;
+  dz.hidden = has;
+  fileListBar.hidden = !has;
+  fileCount.textContent = `${items.length} ${items.length === 1 ? "image" : "images"}`;
+  fileList.hidden = !has;
+  options.hidden = !has;
+  convertBtn.disabled = busy || !has;
   addBtn.disabled = busy;
   clearBtn.disabled = busy;
   fileInput.disabled = busy;
@@ -86,6 +101,7 @@ function addFiles(files) {
   const images = files.filter((f) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name));
   if (images.length < files.length) showMsg("error", "Some files were skipped because they aren't images.");
   else hideMsg();
+  if (!images.length) return;
   items.push(...images.map((file) => ({ file, error: null })));
   resetResult();
   render();
@@ -124,6 +140,7 @@ async function convert() {
     resultFlag.textContent = flags.join(" ");
     resultFlag.hidden = !flags.length;
     result.hidden = false;
+    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch {
     showMsg("error", ERRORS.crashed);
   } finally {
@@ -133,6 +150,7 @@ async function convert() {
 }
 
 bindDropzone(dz, fileInput, addFiles);
+bindWorkspaceDrop(panel, addFiles, () => !busy && items.length > 0);
 addBtn.addEventListener("click", () => fileInput.click());
 clearBtn.addEventListener("click", () => {
   items = [];

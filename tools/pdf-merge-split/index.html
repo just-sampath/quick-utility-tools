@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#f5f6f9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
   <meta name="description" content="Merge PDFs, split a PDF into several files, or extract pages into a new PDF, right in your browser. Nothing is uploaded.">
-  <title>PDF Merge, Split and Extract | Quick Utility Tools</title>
+  <title>PDF Merge, Split &amp; Extract | Quick Utility Tools</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
   <script>
     document.documentElement.dataset.theme =
@@ -32,17 +32,26 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
-      <h1>PDF Merge, Split and Extract</h1>
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
+      <h1>PDF Merge, Split &amp; Extract</h1>
       <p>Combine PDFs into one, cut a PDF into several files, or pull selected pages into a new PDF. Text stays selectable and images stay original.</p>
     </div>
 
     <div class="panel">
       <label class="dropzone" id="dropzone">
         <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple class="visually-hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6m0 6-3-3m3 3 3-3"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>
         <strong>Choose PDFs or drop them here</strong>
         <span>Your files stay on this device</span>
       </label>
+
+      <div class="file-list-bar" id="fileListBar" hidden>
+        <span class="file-list-count" id="fileCount"></span>
+        <div class="file-list-actions">
+          <button class="btn btn-secondary btn-sm" id="addBtn" type="button">Add PDFs</button>
+          <button class="btn-danger-ghost" id="clearBtn" type="button">Clear all</button>
+        </div>
+      </div>
 
       <ul class="file-list" id="fileList" hidden></ul>
 
@@ -57,7 +66,7 @@
         </fieldset>
 
         <div class="field" id="splitHow" hidden>
-          <label class="field-label" for="splitSelect">Split</label>
+          <label class="field-label" for="splitSelect">Split method</label>
           <select id="splitSelect">
             <option value="every">Every page</option>
             <option value="chunks">Every N pages</option>
@@ -67,20 +76,22 @@
 
         <div class="field" id="chunkField" hidden>
           <label class="field-label" for="chunkInput">Pages per file</label>
-          <input type="number" id="chunkInput" inputmode="numeric" min="1" step="1" value="2">
+          <input type="number" class="input" id="chunkInput" inputmode="numeric" min="1" step="1" value="2">
         </div>
 
         <div class="field" id="rangeField" hidden>
           <label class="field-label" for="rangeInput" id="rangeLabel">Pages to extract</label>
-          <input type="text" class="pms-text" id="rangeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="1-3,5,8-z">
+          <input type="text" class="input" id="rangeInput" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="1-3,5,8-z">
         </div>
 
         <p class="hint" id="modeHint"></p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>Text stays selectable and embedded images keep their original quality. Split and Extract work on the first PDF while keeping any extra files ready for Merge. Multiple output files download together as a ZIP.</p>
+        </details>
 
         <div class="actions">
           <button class="btn btn-primary" id="runBtn" type="button">Merge PDFs</button>
-          <button class="btn btn-secondary" id="addBtn" type="button">Add PDFs</button>
-          <button class="link-btn" id="clearBtn" type="button">Clear all</button>
         </div>
       </div>
 
@@ -92,7 +103,7 @@
           <span id="resultTitle">PDF ready</span>
         </h2>
         <div class="result-stats">
-          <span>Files: <strong id="statFiles"></strong></span>
+          <span id="statFilesWrap"><span id="statFilesLabel">Files</span>: <strong id="statFiles"></strong></span>
           <span>Pages: <strong id="statPages"></strong></span>
           <span>Size: <strong id="statSize"></strong></span>
         </div>
@@ -108,13 +119,20 @@
         <div class="file-name"></div>
         <div class="file-size"></div>
       </div>
-      <div class="pms-move">
-        <button class="pms-icon-btn" type="button" data-act="up" aria-label="Move up"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
-        <button class="pms-icon-btn" type="button" data-act="down" aria-label="Move down"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <span class="file-badge" hidden>Used in Merge only</span>
+      <div class="order-controls">
+        <button class="icon-btn" type="button" data-act="up" aria-label="Move up"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+        <button class="icon-btn" type="button" data-act="down" aria-label="Move down"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
       </div>
-      <button class="link-btn" type="button" data-act="remove">Remove</button>
+      <button class="btn-danger-ghost" type="button" data-act="remove">Remove</button>
       <form class="pms-password" hidden>
-        <input type="password" autocomplete="off" placeholder="Password" aria-label="Password for this PDF">
+        <div class="password-wrap">
+          <input class="input" type="password" autocomplete="off" placeholder="Password" aria-label="Password for this PDF">
+          <button class="pw-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
+            <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.2A10.4 10.4 0 0 1 12 4c6.5 0 10 8 10 8a18.5 18.5 0 0 1-2.2 3.2"/><path d="M6.6 6.6A18.5 18.5 0 0 0 2 12s3.5 8 10 8a9.8 9.8 0 0 0 5.4-1.6"/><path d="M14.1 14.1a3 3 0 0 1-4.2-4.2"/><path d="m2 2 20 20"/></svg>
+          </button>
+        </div>
         <button class="btn btn-secondary btn-sm" type="submit">Unlock</button>
       </form>
     </li>

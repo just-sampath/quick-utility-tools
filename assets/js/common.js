@@ -3,13 +3,21 @@ function syncThemeColor() {
   for (const meta of document.querySelectorAll('meta[name="theme-color"]')) meta.content = bg;
 }
 
+function syncThemeButton(button) {
+  const label = document.documentElement.dataset.theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  button.setAttribute("aria-label", label);
+  button.title = label;
+}
+
 export function initTheme(button) {
   syncThemeColor();
+  syncThemeButton(button);
   button.addEventListener("click", () => {
     const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     localStorage.setItem("theme", next);
     syncThemeColor();
+    syncThemeButton(button);
   });
 }
 
@@ -50,14 +58,101 @@ export function bindDropzone(dz, input, onFiles) {
   dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
   dz.addEventListener("drop", (e) => {
     e.preventDefault();
+    e.stopPropagation();
     dz.classList.remove("dragover");
-    if (e.dataTransfer.files.length) onFiles([...e.dataTransfer.files]);
+    if (e.dataTransfer?.files?.length) onFiles([...e.dataTransfer.files]);
   });
   window.addEventListener("dragover", (e) => e.preventDefault());
   window.addEventListener("drop", (e) => e.preventDefault());
   input.addEventListener("change", () => {
     if (input.files.length) onFiles([...input.files]);
     input.value = "";
+  });
+}
+
+function hasDraggedFiles(e) {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  return Array.from(dt.types || []).includes("Files") || Boolean(dt.files?.length);
+}
+
+export function bindWorkspaceDrop(target, onFiles, canAccept = () => true) {
+  let depth = 0;
+  const clear = () => {
+    depth = 0;
+    target.classList.remove("drop-active");
+  };
+  target.addEventListener("dragenter", (e) => {
+    if (!hasDraggedFiles(e) || !canAccept()) return;
+    e.preventDefault();
+    depth++;
+    target.classList.add("drop-active");
+  });
+  target.addEventListener("dragover", (e) => {
+    if (!hasDraggedFiles(e) || !canAccept()) return;
+    e.preventDefault();
+    target.classList.add("drop-active");
+  });
+  target.addEventListener("dragleave", () => {
+    if (depth > 0 && --depth === 0) target.classList.remove("drop-active");
+  });
+  target.addEventListener("drop", (e) => {
+    clear();
+    if (!canAccept() || !e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    onFiles([...e.dataTransfer.files]);
+  });
+  window.addEventListener("drop", clear, true);
+  window.addEventListener("dragend", clear);
+}
+
+export function initPasswordToggles(root = document) {
+  for (const btn of root.querySelectorAll("button[data-password-toggle]")) {
+    if (btn.dataset.pwBound === "1") continue;
+    const id = btn.getAttribute("aria-controls");
+    const input = (id && document.getElementById(id)) || btn.closest(".password-wrap")?.querySelector("input");
+    if (!input) continue;
+    btn.dataset.pwBound = "1";
+    const sync = () => {
+      const shown = input.type === "text";
+      btn.setAttribute("aria-pressed", String(shown));
+      btn.setAttribute("aria-label", shown ? "Hide password" : "Show password");
+    };
+    sync();
+    btn.addEventListener("click", () => {
+      input.type = input.type === "password" ? "text" : "password";
+      sync();
+    });
+  }
+}
+
+export function bindRangeSync(rangeEl, numberEl, onChange = () => {}) {
+  const clamp = (n) => {
+    const min = rangeEl.min !== "" ? Number(rangeEl.min) : -Infinity;
+    const max = rangeEl.max !== "" ? Number(rangeEl.max) : Infinity;
+    return Math.min(max, Math.max(min, n));
+  };
+  rangeEl.addEventListener("input", () => {
+    numberEl.value = rangeEl.value;
+    onChange();
+  });
+  numberEl.addEventListener("input", () => {
+    const n = parseFloat(numberEl.value);
+    if (!Number.isFinite(n)) return;
+    rangeEl.value = String(clamp(n));
+    onChange();
+  });
+  numberEl.addEventListener("change", () => {
+    const n = parseFloat(numberEl.value);
+    if (!Number.isFinite(n)) {
+      numberEl.value = rangeEl.value;
+      onChange();
+      return;
+    }
+    const v = clamp(n);
+    numberEl.value = String(v);
+    rangeEl.value = String(v);
+    onChange();
   });
 }
 

@@ -9,7 +9,7 @@ function encryptArgs(password, ownerPassword, permissions = {}) {
 }
 
 self.onmessage = async (e) => {
-  const { id, bytes, password, ownerPassword, permissions } = e.data;
+  const { id, op, bytes, password, ownerPassword, permissions } = e.data;
   try {
     const q = await loadQpdf();
     qpdfClearJob(q);
@@ -18,6 +18,11 @@ self.onmessage = async (e) => {
     if (probe === 0 || probe === 3 || qpdfPasswordProblem()) {
       qpdfClearJob(q);
       self.postMessage({ id, ok: false, alreadyEncrypted: true });
+      return;
+    }
+    if (op === "check") {
+      qpdfClearJob(q);
+      self.postMessage({ id, ok: true });
       return;
     }
     const code = qpdfExec(q, [...encryptArgs(password, ownerPassword, permissions), "/job/in.pdf", "/job/out.pdf"]);

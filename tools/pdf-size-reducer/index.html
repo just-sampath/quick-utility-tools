@@ -32,6 +32,7 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
       <h1>PDF Size Reducer</h1>
       <p>Makes large PDFs smaller by shrinking oversized images and cleaning up the file. Text stays selectable.</p>
     </div>
@@ -39,7 +40,7 @@
     <div class="panel">
       <label class="dropzone" id="dropzone">
         <input type="file" id="fileInput" accept="application/pdf,.pdf" class="visually-hidden">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m8 13 4 4 4-4M12 17V9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>
         <strong>Choose a PDF or drop it here</strong>
         <span>Your file stays on this device</span>
       </label>
@@ -50,7 +51,7 @@
           <div class="file-name" id="fileName"></div>
           <div class="file-size" id="fileSize"></div>
         </div>
-        <button class="link-btn" id="clearBtn" type="button">Remove</button>
+        <button class="btn-danger-ghost" id="clearBtn" type="button">Remove</button>
       </div>
 
       <div class="options" id="options" hidden>
@@ -65,32 +66,40 @@
           <p class="hint" id="presetHint"></p>
         </fieldset>
 
-        <div class="field-row">
-          <div class="field">
-            <label class="field-label" for="unitSelect">Shrink images by</label>
-            <select id="unitSelect">
-              <option value="percent">Percent</option>
-              <option value="pixels">Pixels</option>
-            </select>
+        <div class="field" id="imageFields">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label" for="unitSelect">Shrink images by</label>
+              <select id="unitSelect">
+                <option value="percent">Percent</option>
+                <option value="pixels">Pixels</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="sizeInput" id="sizeLabel">Scale</label>
+              <div class="input-suffix">
+                <input class="input" type="number" id="sizeInput" inputmode="numeric" min="1" step="1" value="100">
+                <span id="sizeUnit">%</span>
+              </div>
+            </div>
           </div>
+
           <div class="field">
-            <label class="field-label" for="sizeInput" id="sizeLabel">Scale</label>
-            <div class="input-suffix">
-              <input type="number" id="sizeInput" inputmode="numeric" min="1" step="1" value="100">
-              <span id="sizeUnit">%</span>
+            <label class="field-label" for="qualityInput">Image quality</label>
+            <div class="range-combo">
+              <input type="range" id="qualityRange" min="1" max="100" step="1" value="75" aria-label="Image quality slider">
+              <div class="input-suffix">
+                <input class="input" type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="75">
+                <span>%</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="field">
-          <label class="field-label" for="qualityInput">Image quality</label>
-          <div class="input-suffix">
-            <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="75">
-            <span>%</span>
-          </div>
-        </div>
-
-        <p class="hint" id="customHint">Pixels sets the longest side that large JPEG images are shrunk to. Percent scales every JPEG image. Smaller images are never enlarged. Quality 100 keeps the most detail. Other kinds of images are left as they are.</p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>Pixels sets the longest side that large JPEG images are shrunk to. Percent scales every JPEG image. Smaller images are never enlarged. Quality 100 keeps the most detail. Other kinds of images are left as they are.</p>
+        </details>
         <div class="actions">
           <button class="btn btn-primary" id="compressBtn" type="button">Compress PDF</button>
         </div>
@@ -99,8 +108,14 @@
       <form class="password-block" id="passwordBlock" hidden>
         <label for="passwordInput">This PDF requires a password to open</label>
         <div class="password-row">
-          <input type="password" id="passwordInput" autocomplete="off" placeholder="Enter password">
-          <button class="btn btn-primary" id="unlockBtn" type="submit">Continue</button>
+          <div class="password-wrap">
+            <input class="input" type="password" id="passwordInput" autocomplete="off" placeholder="Enter password">
+            <button class="pw-toggle" type="button" data-password-toggle aria-controls="passwordInput" aria-pressed="false" aria-label="Show password">
+              <svg class="icon-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/></svg>
+            </button>
+          </div>
+          <button class="btn btn-primary" id="unlockBtn" type="submit">Unlock</button>
         </div>
         <p class="hint">The compressed copy keeps the same password.</p>
       </form>

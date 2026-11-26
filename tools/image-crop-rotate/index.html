@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#f5f6f9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
   <meta name="description" content="Crop, rotate, straighten and flip an image right in your browser. Nothing is uploaded.">
-  <title>Image Crop, Rotate and Flip | Quick Utility Tools</title>
+  <title>Image Crop, Rotate &amp; Flip | Quick Utility Tools</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M13 2 4.5 13.5H11L10 22l8.5-11.5H12z'/%3E%3C/svg%3E">
   <script>
     document.documentElement.dataset.theme =
@@ -32,7 +32,8 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
-      <h1>Image Crop, Rotate and Flip</h1>
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
+      <h1>Image Crop, Rotate &amp; Flip</h1>
       <p>Crop an image, rotate it, straighten it or flip it. Drag the crop box on the picture or type exact values. Works on JPG, PNG and WebP images.</p>
     </div>
 
@@ -45,7 +46,10 @@
       </label>
 
       <div class="icr-stage" id="stage" hidden>
-        <div class="icr-name" id="imageName"></div>
+        <div class="icr-head">
+          <div class="icr-name" id="imageName"></div>
+          <button class="btn-ghost" id="newBtn" type="button">Choose another image</button>
+        </div>
         <div class="icr-view" id="view">
           <canvas class="icr-canvas" id="canvas" aria-label="Image preview with crop box"></canvas>
         </div>
@@ -64,7 +68,10 @@
         </fieldset>
 
         <div class="field">
-          <label class="field-label" for="angleInput">Straighten: <span id="angleValue">0°</span></label>
+          <div class="field-head">
+            <label class="field-label" for="angleInput">Straighten: <span id="angleValue">0°</span></label>
+            <button id="angleReset" class="btn-ghost btn-compact" type="button" disabled>Reset 0°</button>
+          </div>
           <input type="range" id="angleInput" min="-45" max="45" step="0.5" value="0">
         </div>
 
@@ -72,7 +79,7 @@
           <label class="field-label" for="ratioSelect">Crop shape</label>
           <select id="ratioSelect">
             <option value="free">Free</option>
-            <option value="original">Same as image</option>
+            <option value="original">Same as original</option>
             <option value="1:1">Square 1:1</option>
             <option value="4:3">4:3</option>
             <option value="3:4">3:4</option>
@@ -86,10 +93,22 @@
         <fieldset class="field">
           <legend class="field-label">Crop</legend>
           <div class="icr-grid">
-            <div class="input-suffix"><input type="number" id="cropX" inputmode="numeric" min="0" step="1" aria-label="Crop left"><span>Left</span></div>
-            <div class="input-suffix"><input type="number" id="cropY" inputmode="numeric" min="0" step="1" aria-label="Crop top"><span>Top</span></div>
-            <div class="input-suffix"><input type="number" id="cropW" inputmode="numeric" min="1" step="1" aria-label="Crop width"><span>Width</span></div>
-            <div class="input-suffix"><input type="number" id="cropH" inputmode="numeric" min="1" step="1" aria-label="Crop height"><span>Height</span></div>
+            <div class="icr-field">
+              <label class="icr-field-label" for="cropX">Left</label>
+              <div class="input-suffix"><input class="input" type="number" id="cropX" inputmode="numeric" min="0" step="1"><span>px</span></div>
+            </div>
+            <div class="icr-field">
+              <label class="icr-field-label" for="cropY">Top</label>
+              <div class="input-suffix"><input class="input" type="number" id="cropY" inputmode="numeric" min="0" step="1"><span>px</span></div>
+            </div>
+            <div class="icr-field">
+              <label class="icr-field-label" for="cropW">Width</label>
+              <div class="input-suffix"><input class="input" type="number" id="cropW" inputmode="numeric" min="1" step="1"><span>px</span></div>
+            </div>
+            <div class="icr-field">
+              <label class="icr-field-label" for="cropH">Height</label>
+              <div class="input-suffix"><input class="input" type="number" id="cropH" inputmode="numeric" min="1" step="1"><span>px</span></div>
+            </div>
           </div>
           <p class="hint" id="cropNote">Values are in pixels.</p>
         </fieldset>
@@ -106,27 +125,33 @@
           </div>
           <div class="field" id="qualityField">
             <label class="field-label" for="qualityInput">Quality</label>
-            <div class="input-suffix">
-              <input type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="92">
-              <span>%</span>
+            <div class="range-combo">
+              <input type="range" id="qualityRange" min="1" max="100" step="1" value="92" aria-label="Quality">
+              <div class="input-suffix">
+                <input class="input" type="number" id="qualityInput" inputmode="numeric" min="1" max="100" step="1" value="92">
+                <span>%</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <fieldset class="field">
-          <legend class="field-label">Fill color</legend>
+        <fieldset class="field" id="bgField">
+          <legend class="field-label">Background color</legend>
           <div class="swatches">
             <label><input class="visually-hidden" type="radio" name="background" value="white" checked><span class="swatch swatch-white"></span><span class="visually-hidden">White</span></label>
             <label><input class="visually-hidden" type="radio" name="background" value="black"><span class="swatch swatch-black"></span><span class="visually-hidden">Black</span></label>
           </div>
         </fieldset>
 
-        <p class="hint">The fill color shows in the corners when you straighten a JPG. PNG and WebP keep those corners transparent. Saving removes photo details such as camera model and GPS location, and keeps the picture upright.</p>
+        <p class="hint">Saving removes photo metadata and keeps the picture upright.</p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>Background color fills the corners when you straighten a JPG; PNG and WebP keep those corners transparent. Output over 16 megapixels is scaled down to stay within browser canvas limits.</p>
+        </details>
 
         <div class="actions">
           <button class="btn btn-primary" id="saveBtn" type="button">Create image</button>
           <button class="btn btn-secondary" id="resetBtn" type="button">Reset</button>
-          <button class="link-btn" id="newBtn" type="button">Choose another image</button>
         </div>
       </div>
 

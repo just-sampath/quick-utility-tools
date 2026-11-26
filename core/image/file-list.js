@@ -1,4 +1,4 @@
-import { formatBytes, createJobRunner, createStatus, bindDropzone } from "../../assets/js/common.js";
+import { formatBytes, createJobRunner, createStatus, bindDropzone, bindWorkspaceDrop } from "../../assets/js/common.js";
 import { bindZipButton } from "../../assets/js/zip.js";
 import { OLD_BROWSER, ZIP_FAILED } from "./messages.js";
 
@@ -19,6 +19,8 @@ export function createFileList({
 }) {
   const dz = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
+  const fileListBar = document.getElementById("fileListBar");
+  const fileCount = document.getElementById("fileCount");
   const fileList = document.getElementById("fileList");
   const options = document.getElementById("options");
   const addBtn = document.getElementById("addBtn");
@@ -26,8 +28,10 @@ export function createFileList({
   const result = document.getElementById("result");
   const statBefore = document.getElementById("statBefore");
   const statAfter = document.getElementById("statAfter");
+  const singleDownloadBtn = document.getElementById("singleDownloadBtn");
   const zipBtn = document.getElementById("zipBtn");
   const template = document.getElementById("itemTemplate");
+  const panel = dz.closest(".panel");
 
   let items = [];
   let batch = 0;
@@ -85,14 +89,24 @@ export function createFileList({
     item.li.classList.remove("is-error");
   }
 
+  function hideResult() {
+    result.hidden = true;
+    singleDownloadBtn.hidden = true;
+    singleDownloadBtn.removeAttribute("href");
+    singleDownloadBtn.removeAttribute("download");
+    zipBtn.hidden = true;
+  }
+
   function refresh() {
     const has = items.length > 0;
     dz.hidden = has;
+    fileListBar.hidden = !has;
+    fileCount.textContent = `${items.length} ${items.length === 1 ? "image" : "images"}`;
     fileList.hidden = !has;
     options.hidden = !has;
     action.textContent = label(items);
     action.disabled = working || !canRun(items);
-    if (!has) result.hidden = true;
+    if (!has) hideResult();
     onChange();
   }
 
@@ -137,13 +151,13 @@ export function createFileList({
     item.li.remove();
     items = items.filter((i) => i !== item);
     refresh();
-    if (items.some((i) => i.output)) showSummary();
+    showSummary();
   }
 
   function showSummary() {
     const done = items.filter((i) => i.output);
     if (!done.length) {
-      result.hidden = true;
+      hideResult();
       return;
     }
     const before = done.reduce((n, i) => n + i.file.size, 0);
@@ -152,7 +166,17 @@ export function createFileList({
     statAfter.textContent = formatBytes(after);
     summarize(done, before, after);
     zip.reset();
-    zipBtn.hidden = done.length < 2;
+    if (done.length === 1) {
+      singleDownloadBtn.href = done[0].url;
+      singleDownloadBtn.download = done[0].output.name;
+      singleDownloadBtn.hidden = false;
+      zipBtn.hidden = true;
+    } else {
+      singleDownloadBtn.hidden = true;
+      singleDownloadBtn.removeAttribute("href");
+      singleDownloadBtn.removeAttribute("download");
+      zipBtn.hidden = false;
+    }
     result.hidden = false;
   }
 
@@ -160,7 +184,7 @@ export function createFileList({
     const id = ++batch;
     busy(true);
     hideMsg();
-    result.hidden = true;
+    hideResult();
     for (const item of targets) {
       clearItemResult(item);
       setStatus(item, "Waiting…");
@@ -214,11 +238,7 @@ export function createFileList({
   }
 
   bindDropzone(dz, fileInput, addFiles);
-  options.addEventListener("dragover", (e) => e.preventDefault());
-  options.addEventListener("drop", (e) => {
-    e.preventDefault();
-    if (!working && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]);
-  });
+  bindWorkspaceDrop(panel, addFiles, () => !working && items.length > 0);
   addBtn.addEventListener("click", () => fileInput.click());
   clearBtn.addEventListener("click", clearAll);
 

@@ -39,12 +39,16 @@ const tool = createPdfFileTool({
   },
   onBusy: (on) => {
     saveBtn.disabled = on || keptCount() === 0;
-    resetBtn.disabled = on;
+    resetBtn.disabled = on || !isDirty();
   },
 });
 
 function keptCount() {
   return pages.filter((p) => !p.deleted).length;
+}
+
+function isDirty() {
+  return pages.some((p, i) => p.orig !== i + 1 || p.turn !== 0 || p.deleted);
 }
 
 function toDataUrl(data) {
@@ -88,10 +92,10 @@ function showOrganizer(info, urls) {
   organizer.hidden = false;
 }
 
-function iconButton(label, icon, onClick) {
+function iconButton(label, icon, extraClass, onClick) {
   const b = document.createElement("button");
   b.type = "button";
-  b.className = "po-btn";
+  b.className = "po-btn " + extraClass;
   b.title = label;
   b.setAttribute("aria-label", label);
   b.innerHTML = icon;
@@ -103,6 +107,11 @@ function buildCard(page) {
   const li = document.createElement("li");
   li.className = "po-card";
   li.draggable = true;
+
+  const head = document.createElement("div");
+  head.className = "po-card-head";
+  const badge = document.createElement("span");
+  badge.className = "po-badge";
 
   const frame = document.createElement("div");
   frame.className = "po-frame";
@@ -121,8 +130,6 @@ function buildCard(page) {
   }
   frame.append(face);
 
-  const badge = document.createElement("span");
-  badge.className = "po-badge";
   const note = document.createElement("span");
   note.className = "po-note";
 
@@ -136,24 +143,29 @@ function buildCard(page) {
     (b.disabled ? page.btns.del : b).focus();
   };
   page.btns = {
-    earlier: iconButton("Move earlier", ICON.left, move(-1)),
-    later: iconButton("Move later", ICON.right, move(1)),
-    ccw: iconButton("Rotate left", ICON.ccw, () => turn(page, 270)),
-    cw: iconButton("Rotate right", ICON.cw, () => turn(page, 90)),
-    del: iconButton("Delete page", ICON.trash, (b) => {
+    earlier: iconButton("Move earlier", ICON.left, "po-move-prev", move(-1)),
+    later: iconButton("Move later", ICON.right, "po-move-next", move(1)),
+    ccw: iconButton("Rotate left", ICON.ccw, "po-rot-l", () => turn(page, 270)),
+    cw: iconButton("Rotate right", ICON.cw, "po-rot-r", () => turn(page, 90)),
+    del: iconButton("Delete page", ICON.trash, "po-del-btn", (b) => {
       page.deleted = !page.deleted;
       layout();
       b.focus();
     }),
   };
-  bar.append(page.btns.earlier, page.btns.ccw, page.btns.cw, page.btns.later, page.btns.del);
+  head.append(badge, page.btns.del);
+  bar.append(page.btns.earlier, page.btns.later, page.btns.ccw, page.btns.cw);
 
-  li.append(frame, badge, note, bar);
+  li.append(head, frame, note, bar);
   page.badge = badge;
   page.note = note;
   page.face = face;
 
   li.addEventListener("dragstart", (e) => {
+    if (page.deleted) {
+      e.preventDefault();
+      return;
+    }
     dragging = page;
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(page.orig));
@@ -206,6 +218,7 @@ function layout() {
   pages.forEach((page, i) => {
     const li = page.el;
     li.classList.toggle("po-deleted", page.deleted);
+    li.draggable = !page.deleted;
     page.face.dataset.rot = String((page.base + page.turn) % 360);
     if (page.deleted) {
       page.badge.textContent = "Deleted";
@@ -217,8 +230,8 @@ function layout() {
     if (page.orig !== position || page.deleted) notes.push("was " + page.orig);
     if (page.turn) notes.push("turned " + page.turn + "°");
     page.note.textContent = notes.join(", ");
-    page.btns.earlier.disabled = i === 0;
-    page.btns.later.disabled = i === pages.length - 1;
+    page.btns.earlier.disabled = page.deleted || i === 0;
+    page.btns.later.disabled = page.deleted || i === pages.length - 1;
     page.btns.ccw.disabled = page.deleted;
     page.btns.cw.disabled = page.deleted;
     const del = page.btns.del;
@@ -232,6 +245,7 @@ function layout() {
   const kept = keptCount();
   summary.textContent = `${kept} of ${pages.length} pages kept`;
   saveBtn.disabled = kept === 0;
+  resetBtn.disabled = !isDirty();
 }
 
 async function save() {

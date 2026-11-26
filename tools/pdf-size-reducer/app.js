@@ -1,4 +1,4 @@
-import { initTheme } from "../../assets/js/common.js";
+import { initTheme, bindRangeSync } from "../../assets/js/common.js";
 import { createPdfFileTool } from "../../core/pdf/single-file.js";
 import { damaged } from "../../core/pdf/messages.js";
 
@@ -6,22 +6,23 @@ initTheme(document.querySelector(".theme-toggle"));
 
 const options = document.getElementById("options");
 const presetHint = document.getElementById("presetHint");
+const imageFields = document.getElementById("imageFields");
 const unitSelect = document.getElementById("unitSelect");
 const sizeInput = document.getElementById("sizeInput");
 const sizeUnit = document.getElementById("sizeUnit");
 const sizeLabel = document.getElementById("sizeLabel");
+const qualityRange = document.getElementById("qualityRange");
 const qualityInput = document.getElementById("qualityInput");
-const customHint = document.getElementById("customHint");
 const compressBtn = document.getElementById("compressBtn");
 const statSaved = document.getElementById("statSaved");
 const statImagesWrap = document.getElementById("statImagesWrap");
 const statImages = document.getElementById("statImages");
 
 const HINTS = {
-  lossless: "Only cleans up the file structure. Images and quality are untouched, so savings are usually small.",
-  balanced: "Recompresses images and shrinks very large ones to about 2000 px. Good for sharing and printing.",
-  small: "Stronger image compression, large images shrunk to about 1300 px. Best for email and on-screen reading.",
-  custom: "Set your own image quality and size below.",
+  lossless: "Cleans up file structure only — images and quality stay untouched.",
+  balanced: "Recompresses images and caps large ones at 2000 px.",
+  small: "Stronger compression and caps large images at 1300 px.",
+  custom: "Set your own image size and quality below.",
 };
 
 const VALUES = {
@@ -81,9 +82,10 @@ function syncPreset() {
     syncUnit();
     sizeInput.value = VALUES[p].size;
     qualityInput.value = VALUES[p].quality;
+    qualityRange.value = VALUES[p].quality;
   }
-  for (const el of [unitSelect, sizeInput, qualityInput]) el.disabled = lossless;
-  customHint.hidden = lossless;
+  imageFields.hidden = lossless;
+  for (const el of [unitSelect, sizeInput, qualityInput, qualityRange]) el.disabled = lossless;
   presetHint.textContent = HINTS[p];
   tool.clearResult();
 }
@@ -125,7 +127,7 @@ unitSelect.addEventListener("change", () => {
   markCustom();
 });
 sizeInput.addEventListener("input", markCustom);
-qualityInput.addEventListener("input", markCustom);
+bindRangeSync(qualityRange, qualityInput, markCustom);
 syncPreset();
 
 compressBtn.addEventListener("click", compress);

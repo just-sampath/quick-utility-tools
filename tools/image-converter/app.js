@@ -1,4 +1,4 @@
-import { initTheme, formatBytes, downloadName } from "../../assets/js/common.js";
+import { initTheme, formatBytes, downloadName, bindRangeSync } from "../../assets/js/common.js";
 import { createFileList } from "../../core/image/file-list.js";
 import { sniffImages } from "../../core/image/files.js";
 import { DECODE_ERRORS, ANIM_NOTE, CAP_LIMIT, sizeChange } from "../../core/image/messages.js";
@@ -6,7 +6,9 @@ import { DECODE_ERRORS, ANIM_NOTE, CAP_LIMIT, sizeChange } from "../../core/imag
 initTheme(document.querySelector(".theme-toggle"));
 
 const formatSelect = document.getElementById("formatSelect");
+const formatOptionsRow = document.getElementById("formatOptionsRow");
 const qualityField = document.getElementById("qualityField");
+const qualityRange = document.getElementById("qualityRange");
 const qualityInput = document.getElementById("qualityInput");
 const backgroundField = document.getElementById("backgroundField");
 const formatNote = document.getElementById("formatNote");
@@ -29,7 +31,7 @@ const FORMAT_NOTES = {
 
 const list = createFileList({
   action: convertBtn,
-  label: (items) => (items.length > 1 ? `Convert ${items.length} Images` : "Convert Image"),
+  label: (items) => (items.length > 1 ? `Convert ${items.length} images` : "Convert image"),
   zipName: "converted-images.zip",
   worker: "./convert-worker.js",
   needsCanvas: true,
@@ -53,6 +55,7 @@ function updateFormat() {
   const format = formatSelect.value;
   qualityField.hidden = format === "png";
   backgroundField.hidden = format !== "jpeg";
+  formatOptionsRow.hidden = qualityField.hidden && backgroundField.hidden;
   formatNote.textContent = FORMAT_NOTES[format];
 }
 
@@ -98,5 +101,6 @@ convertBtn.addEventListener("click", () => {
   list.runWorkers(settings, (item, r) => finishItem(item, r, settings.format), "Some images couldn't be converted. See the list above.");
 });
 
+bindRangeSync(qualityRange, qualityInput);
 formatSelect.addEventListener("change", updateFormat);
 updateFormat();

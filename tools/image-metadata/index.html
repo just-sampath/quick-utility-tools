@@ -32,6 +32,7 @@
 
   <main class="tool-main container tool-wide">
     <div class="tool-head">
+      <a class="back-link" href="../../index.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All tools</a>
       <h1>Image Metadata Viewer &amp; Remover</h1>
       <p>Shows what hidden data your JPG, PNG and WebP images carry, such as camera model, date and GPS location. Removing it keeps the picture itself byte for byte unchanged.</p>
     </div>
@@ -44,6 +45,14 @@
         <span>Your images stay on this device</span>
       </label>
 
+      <div class="file-list-bar" id="fileListBar" hidden>
+        <span class="file-list-count" id="fileCount"></span>
+        <div class="file-list-actions">
+          <button class="btn btn-secondary btn-sm" id="addBtn" type="button">Add images</button>
+          <button class="btn-danger-ghost" id="clearBtn" type="button">Clear all</button>
+        </div>
+      </div>
+
       <ul class="file-list" id="fileList" hidden></ul>
 
       <div class="options" id="options" hidden>
@@ -51,20 +60,22 @@
           <input type="checkbox" id="keepOrientation" checked>
           <span>Keep orientation</span>
         </label>
-        <p class="hint" id="orientationNote" hidden>Some photos are stored sideways and rely on an orientation tag to display upright. Keeping it leaves only that one tag, so they still look right.</p>
+        <p class="hint" id="orientationNote" hidden>Keeps only the orientation tag so sideways photos still display upright.</p>
 
         <label class="check-row">
           <input type="checkbox" id="removeIcc">
           <span>Remove color profile</span>
         </label>
-        <p class="hint">The color profile controls how colors are displayed. Removing it can make colors look slightly different, so it is kept unless you tick this.</p>
+        <p class="hint">Kept by default so colors stay accurate.</p>
 
-        <p class="hint">Details, including GPS location, are read from your own files in this browser. Nothing is uploaded. Removing metadata cuts the data out of the file without re-encoding, so image quality is unchanged. The Image Size Reducer also drops metadata, but it re-encodes the image.</p>
+        <p class="hint">Cuts metadata out losslessly without re-encoding.</p>
+        <details class="info-disclosure">
+          <summary>Details &amp; limits</summary>
+          <p>All metadata, including GPS location, is read and stripped locally in your browser without touching image pixels. Need smaller files too? <a href="../image-size-reducer/index.html">Image Size Reducer</a> removes metadata and re-encodes the image.</p>
+        </details>
 
         <div class="actions">
           <button class="btn btn-primary" id="stripBtn" type="button">Remove metadata</button>
-          <button class="btn btn-secondary" id="addBtn" type="button">Add images</button>
-          <button class="link-btn" id="clearBtn" type="button">Clear all</button>
         </div>
       </div>
 
@@ -80,7 +91,10 @@
           <span>After: <strong id="statAfter"></strong></span>
           <span>Removed: <strong id="statSaved"></strong></span>
         </div>
-        <a class="btn btn-primary" id="zipBtn" download>Download all as ZIP</a>
+        <div class="actions">
+          <a class="btn btn-primary" id="singleDownloadBtn" hidden>Download</a>
+          <a class="btn btn-primary" id="zipBtn" download hidden>Download all as ZIP</a>
+        </div>
       </div>
     </div>
   </main>
@@ -93,9 +107,9 @@
         <div class="file-size"></div>
       </div>
       <span class="saving" hidden></span>
-      <button class="link-btn meta-toggle" type="button" aria-expanded="false" hidden>Details</button>
+      <button class="btn-ghost meta-toggle" type="button" aria-expanded="false" hidden>Details</button>
       <a class="btn btn-secondary btn-sm" hidden>Download</a>
-      <button class="link-btn" type="button" data-remove>Remove</button>
+      <button class="btn-danger-ghost" type="button" data-remove>Remove</button>
       <div class="meta-details" hidden></div>
     </li>
   </template>

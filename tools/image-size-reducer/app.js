@@ -1,4 +1,4 @@
-import { initTheme, formatBytes, downloadName } from "../../assets/js/common.js";
+import { initTheme, formatBytes, downloadName, bindRangeSync } from "../../assets/js/common.js";
 import { createFileList } from "../../core/image/file-list.js";
 import { sniffImages } from "../../core/image/files.js";
 import { DECODE_ERRORS, ANIM_NOTE, CAP_LIMIT, sizeChange } from "../../core/image/messages.js";
@@ -6,6 +6,7 @@ import { DECODE_ERRORS, ANIM_NOTE, CAP_LIMIT, sizeChange } from "../../core/imag
 initTheme(document.querySelector(".theme-toggle"));
 
 const qualityInput = document.getElementById("qualityInput");
+const qualityRange = document.getElementById("qualityRange");
 const unitSelect = document.getElementById("unitSelect");
 const widthInput = document.getElementById("widthInput");
 const heightInput = document.getElementById("heightInput");
@@ -13,6 +14,9 @@ const widthUnit = document.getElementById("widthUnit");
 const heightUnit = document.getElementById("heightUnit");
 const lockBtn = document.getElementById("lockBtn");
 const dpiInput = document.getElementById("dpiInput");
+const dpiField = document.getElementById("dpiField");
+const bgField = document.getElementById("bgField");
+const extraRow = document.getElementById("extraRow");
 const formatSelect = document.getElementById("formatSelect");
 const compressBtn = document.getElementById("compressBtn");
 const resultTitle = document.getElementById("resultTitle");
@@ -33,9 +37,46 @@ let autoFilled = false;
 let refToken = 0;
 let driver = "w";
 
+function outputFormatFor(kind, format) {
+  if (format !== "same") return format;
+  return kind === "jpeg" || kind === "png" || kind === "webp" ? kind : "jpeg";
+}
+
+function isResizing(items) {
+  const w = numberOf(widthInput);
+  const h = numberOf(heightInput);
+  if (unitSelect.value === "percent") {
+    return (w > 0 && w !== 100) || (h > 0 && h !== 100);
+  }
+  if (!w && !h) return false;
+  const known = items.filter((i) => i.dims);
+  if (!known.length) return true;
+  const locked = isLocked();
+  return known.some(({ dims: d }) => {
+    let fx = w ? w / d.width : null;
+    let fy = h ? h / d.height : null;
+    if (locked) {
+      const f = (driver === "w" ? fx : fy) ?? fx ?? fy;
+      fx = fy = f;
+    }
+    const tw = Math.max(1, Math.round(d.width * (fx ?? fy ?? 1)));
+    const th = Math.max(1, Math.round(d.height * (fy ?? fx ?? 1)));
+    return tw !== d.width || th !== d.height;
+  });
+}
+
+function actionLabel(items) {
+  const verb = isResizing(items) ? "Compress & resize" : "Compress";
+  return items.length > 1 ? `${verb} ${items.length} images` : `${verb} image`;
+}
+
+function updateActionLabel() {
+  compressBtn.textContent = actionLabel(list.items);
+}
+
 const list = createFileList({
   action: compressBtn,
-  label: (items) => (items.length > 1 ? `Resize ${items.length} Images` : "Resize Image"),
+  label: actionLabel,
   zipName: "compressed-images.zip",
   worker: "./compress-worker.js",
   needsCanvas: true,
@@ -43,7 +84,7 @@ const list = createFileList({
   idleText,
   summarize,
   onChange: () => {
-    updateDpiNote();
+    updateFormatFields();
     setReference();
   },
   onClear: () => {
@@ -121,6 +162,7 @@ function changeUnit() {
   }
   widthInput.placeholder = heightInput.placeholder = pixels ? "Auto" : "";
   updateSizeNote();
+  updateActionLabel();
 }
 
 function readDims(file) {
@@ -134,7 +176,23 @@ function readDims(file) {
   );
 }
 
+function updateFormatFields() {
+  const fmt = formatSelect.value;
+  const items = list.items;
+  const canStoreDpi = fmt !== "webp" && (items.length === 0 || items.some((i) => outputFormatFor(i.kind, fmt) !== "webp"));
+  const needsBg = items.some((i) => i.kind !== "jpeg" && outputFormatFor(i.kind, fmt) === "jpeg");
+  dpiField.hidden = !canStoreDpi;
+  bgField.hidden = !needsBg;
+  extraRow.hidden = dpiField.hidden && bgField.hidden;
+  updateDpiNote();
+}
+
 function updateDpiNote() {
+  if (dpiField.hidden) {
+    dpiNote.textContent = "";
+    dpiNote.hidden = true;
+    return;
+  }
   const items = list.items;
   const known = items.map((i) => i.dpi).filter((d) => d > 0);
   let text = "";
@@ -174,6 +232,7 @@ async function setReference() {
   }
   syncLinked();
   updateSizeNote();
+  updateActionLabel();
 }
 
 function pngColors(quality) {
@@ -186,7 +245,7 @@ function currentSettings() {
   const unit = unitSelect.value;
   const w = numberOf(widthInput);
   const h = numberOf(heightInput);
-  const dpi = numberOf(dpiInput);
+  const dpi = dpiField.hidden ? 0 : numberOf(dpiInput);
   const max = unit === "percent" ? 1000 : 16384;
   if (!Number.isInteger(w) || !Number.isInteger(h) || w < 0 || h < 0 || w > max || h > max) {
     return { error: `Enter whole numbers for width and height, up to ${max}${unit === "percent" ? "%" : " px"}.` };
@@ -195,7 +254,7 @@ function currentSettings() {
   if (unit === "percent" && (!w || !h)) return { error: "Enter a width and height percentage." };
   const quality = numberOf(qualityInput);
   if (!Number.isInteger(quality) || quality < 1 || quality > 100) return { error: "Quality must be a whole number from 1 to 100." };
-  if (dpiInput.value.trim() !== "" && (!Number.isInteger(dpi) || dpi < 1 || dpi > 2400)) {
+  if (!dpiField.hidden && dpiInput.value.trim() !== "" && (!Number.isInteger(dpi) || dpi < 1 || dpi > 2400)) {
     return { error: "Resolution must be a whole number from 1 to 2400 DPI." };
   }
   return {
@@ -242,23 +301,28 @@ function summarize(done, before, after) {
   resultFlag.hidden = !capped.length;
 }
 
+bindRangeSync(qualityRange, qualityInput);
+formatSelect.addEventListener("change", updateFormatFields);
 unitSelect.addEventListener("change", changeUnit);
 widthInput.addEventListener("input", () => {
   driver = "w";
   autoFilled = false;
   syncLinked();
   updateSizeNote();
+  updateActionLabel();
 });
 heightInput.addEventListener("input", () => {
   driver = "h";
   autoFilled = false;
   syncLinked();
   updateSizeNote();
+  updateActionLabel();
 });
 lockBtn.addEventListener("click", () => {
   setLocked(!isLocked());
   syncLinked();
   updateSizeNote();
+  updateActionLabel();
 });
 
 compressBtn.addEventListener("click", () => {
@@ -269,3 +333,5 @@ compressBtn.addEventListener("click", () => {
   }
   list.runWorkers(settings, finishItem, "Some images couldn't be processed. See the list above.");
 });
+
+updateFormatFields();

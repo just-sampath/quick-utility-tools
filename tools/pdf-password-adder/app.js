@@ -7,7 +7,8 @@ const form = document.getElementById("passwordBlock");
 const pwInput = document.getElementById("passwordInput");
 const confirmInput = document.getElementById("confirmInput");
 const ownerInput = document.getElementById("ownerInput");
-const showBtn = document.getElementById("showBtn");
+const ownerLabel = document.getElementById("ownerLabel");
+const msg = document.getElementById("msg");
 const protectBtn = document.getElementById("protectBtn");
 const statPerms = document.getElementById("statPerms");
 const allow = {
@@ -21,10 +22,7 @@ const BLOCKED_NAMES = { print: "printing", copy: "copying", edit: "editing" };
 
 const tool = createPdfFileTool({
   worker: "./encrypt-worker.js",
-  onFile: () => {
-    form.hidden = false;
-    pwInput.focus();
-  },
+  onFile: checkFile,
   onReset: () => {
     clearFields();
     form.hidden = true;
@@ -45,16 +43,47 @@ function blockedText(perms) {
   return list.charAt(0).toUpperCase() + list.slice(1) + " blocked";
 }
 
-function setVisible(on) {
-  for (const f of fields) f.type = on ? "text" : "password";
-  showBtn.textContent = on ? "Hide passwords" : "Show passwords";
-  showBtn.setAttribute("aria-pressed", String(on));
+function syncOwnerLabel() {
+  const restricted = Object.values(permissions()).includes(false);
+  ownerLabel.textContent = restricted ? "Owner password (required for restrictions)" : "Owner password (optional)";
 }
 
 function clearFields() {
-  for (const f of fields) f.value = "";
+  for (const f of fields) {
+    f.value = "";
+    f.type = "password";
+  }
+  for (const btn of form.querySelectorAll("[data-password-toggle]")) {
+    btn.setAttribute("aria-pressed", "false");
+    btn.setAttribute("aria-label", "Show password");
+  }
   for (const box of Object.values(allow)) box.checked = true;
-  setVisible(false);
+  syncOwnerLabel();
+}
+
+function showAlreadyEncrypted() {
+  form.hidden = true;
+  tool.showMsg("error", "This PDF is already password protected. Remove the password first with ");
+  const link = document.createElement("a");
+  link.href = "../pdf-password-remover/index.html";
+  link.textContent = "PDF Password Remover";
+  msg.lastElementChild.append(link, ".");
+}
+
+async function checkFile() {
+  const r = await tool.run({ op: "check" }, "Checking your PDF…");
+  if (!r) return;
+  if (r.alreadyEncrypted) {
+    showAlreadyEncrypted();
+    return;
+  }
+  if (!r.ok) {
+    tool.fail(r);
+    return;
+  }
+  tool.hideMsg();
+  form.hidden = false;
+  pwInput.focus();
 }
 
 async function protect(password, ownerPassword, perms) {
@@ -66,14 +95,13 @@ async function protect(password, ownerPassword, perms) {
     clearFields();
     tool.showResult(r.bytes, "_protected");
   } else if (r.alreadyEncrypted) {
-    form.hidden = true;
-    tool.showMsg("error", "This PDF is already password protected. Remove the password first with the PDF Password Remover.");
+    showAlreadyEncrypted();
   } else {
     tool.fail(r);
   }
 }
 
-showBtn.addEventListener("click", () => setVisible(showBtn.getAttribute("aria-pressed") !== "true"));
+for (const box of Object.values(allow)) box.addEventListener("change", syncOwnerLabel);
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();

@@ -43,7 +43,7 @@ const list = createFileList({
   setup,
   summarize,
   onChange: () => {
-    const tilted = readable(list.items).some((i) => i.meta.orientation > 1);
+    const tilted = readable(list.items).some((i) => i.origMeta.orientation > 1);
     orientationRow.hidden = !tilted;
     orientationNote.hidden = !tilted;
   },
@@ -58,7 +58,8 @@ async function prepare(files) {
     } catch {
       bytes = new Uint8Array(0);
     }
-    entries.push({ file, meta: readMetadata(bytes) });
+    const meta = readMetadata(bytes);
+    entries.push({ file, meta, origMeta: meta, hasData: meta.ok && meta.groups.length > 0, cleaned: false });
   }
   const bad = entries.filter((e) => !e.meta.ok).length;
   const message = bad ? `${bad} file${bad > 1 ? "s" : ""} couldn't be read. Only valid JPG, PNG and WebP images work. See the list below.` : "";
@@ -77,21 +78,41 @@ function setup(item) {
   item.toggle = item.li.querySelector(".meta-toggle");
   item.details = item.li.querySelector(".meta-details");
   item.toggle.addEventListener("click", () => toggleDetails(item));
-  if (item.meta.ok && item.meta.groups.length) {
+  if (item.hasData) {
     renderDetails(item);
     item.toggle.hidden = false;
   }
 }
 
+function isOrientationOnly(group) {
+  return group.id === "exif" && group.entries.length === 1 && group.entries[0].label === "Orientation";
+}
+
 function renderDetails(item) {
   const box = item.details;
   box.replaceChildren();
+  if (!item.meta.groups.length) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = "No metadata remains in this file.";
+    box.append(note);
+    return;
+  }
+  if (item.cleaned) {
+    const note = document.createElement("p");
+    note.className = "hint";
+    const onlyOrientation = item.meta.groups.length === 1 && isOrientationOnly(item.meta.groups[0]);
+    note.textContent = onlyOrientation
+      ? "All camera, date, and GPS metadata was removed. Only orientation was kept so this photo displays upright."
+      : "Cleaned output — only the kept items below remain in this file.";
+    box.append(note);
+  }
   for (const group of item.meta.groups) {
     const section = document.createElement("section");
     section.className = "meta-group";
     const title = document.createElement("h3");
     title.className = "meta-group-title";
-    title.textContent = group.label;
+    title.textContent = item.cleaned && isOrientationOnly(group) ? "Kept orientation" : group.label;
     const grid = document.createElement("dl");
     grid.className = "meta-grid";
     for (const entry of group.entries) {
@@ -113,8 +134,8 @@ function toggleDetails(item) {
   item.toggle.textContent = open ? "Hide details" : "Details";
 }
 
-function removedText(item, removed) {
-  const names = removed.map((k) => (k === "exif" && item.meta.groups.some((g) => g.id === "gps") ? "EXIF, GPS" : REMOVED_NAMES[k]));
+function removedText(meta, removed) {
+  const names = removed.map((k) => (k === "exif" && meta.groups.some((g) => g.id === "gps") ? "EXIF, GPS" : REMOVED_NAMES[k]));
   return names.join(", ");
 }
 
@@ -131,13 +152,25 @@ async function strip(item, opts) {
     list.setStatus(item, r.error, "error");
     return;
   }
-  const blob = r.changed ? new Blob([r.bytes], { type: TYPES[item.meta.format] }) : item.file;
+  const format = item.origMeta.format;
+  const removedSummary = r.changed ? removedText(item.origMeta, r.removed) : "";
+  const cleanMeta = readMetadata(r.bytes);
+  if (cleanMeta.ok) item.meta = cleanMeta;
+  item.hasData = item.meta.ok && item.meta.groups.length > 0;
+  item.cleaned = r.changed;
+  renderDetails(item);
+  if (item.hasData) {
+    item.toggle.hidden = false;
+  } else if (item.details.hidden) {
+    item.toggle.hidden = true;
+  }
+  const blob = r.changed ? new Blob([r.bytes], { type: TYPES[format] }) : item.file;
   const original = item.file.name.match(/\.([a-z0-9]+)$/i);
-  const ext = original ? original[1].toLowerCase() : EXTS[item.meta.format];
+  const ext = original ? original[1].toLowerCase() : EXTS[format];
   const name = r.changed ? downloadName(item.file.name, "_clean", ext) : item.file.name;
   list.setOutput(item, blob, name, { removed: r.changed });
   if (r.changed) {
-    list.setStatus(item, `${formatBytes(item.file.size)} → ${formatBytes(blob.size)} · Removed ${removedText(item, r.removed)}`);
+    list.setStatus(item, `${formatBytes(item.file.size)} → ${formatBytes(blob.size)} · Removed ${removedSummary}`);
     list.setSaving(item, "Cleaned", false);
   } else {
     const onlyIcc = item.meta.hasIcc && !item.meta.groups.some((g) => g.id !== "icc");

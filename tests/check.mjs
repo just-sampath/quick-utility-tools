@@ -290,6 +290,8 @@ await section("PDF tools (real worker files on the pinned qpdf build)", async ()
   check("owner-only fixture opens without a password", ownerOnly.ok && inspectPdf(q, owner)?.encrypted === true);
   check("adder rejects a PDF that needs a password", (await adder.run({ bytes: buf(user), password: "x" })).alreadyEncrypted === true);
   check("adder rejects an owner-only PDF", (await adder.run({ bytes: buf(owner), password: "x" })).alreadyEncrypted === true);
+  check("adder check accepts an unencrypted PDF", (await adder.run({ op: "check", bytes: buf(plain) })).ok === true);
+  check("adder check rejects encrypted PDFs", (await adder.run({ op: "check", bytes: buf(user) })).alreadyEncrypted === true && (await adder.run({ op: "check", bytes: buf(owner) })).alreadyEncrypted === true);
 
   const damaged = ascii("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n");
   let r = await remover.run({ bytes: buf(user), password: "" });

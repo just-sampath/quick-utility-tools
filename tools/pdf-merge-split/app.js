@@ -1,4 +1,14 @@
-import { initTheme, formatBytes, createJobRunner, createStatus, downloadName, bindDropzone, moveItem } from "../../assets/js/common.js";
+import {
+  initTheme,
+  formatBytes,
+  createJobRunner,
+  createStatus,
+  downloadName,
+  bindDropzone,
+  bindWorkspaceDrop,
+  initPasswordToggles,
+  moveItem,
+} from "../../assets/js/common.js";
 import { makeZip } from "../../assets/js/zip.js";
 import { isPdfFile, looksLikePdf } from "../../core/pdf/files.js";
 import { ENGINE_CRASHED, ENGINE_FAILED, REPAIR_HINT, damaged } from "../../core/pdf/messages.js";
@@ -6,7 +16,10 @@ import { ENGINE_CRASHED, ENGINE_FAILED, REPAIR_HINT, damaged } from "../../core/
 initTheme(document.querySelector(".theme-toggle"));
 
 const dz = document.getElementById("dropzone");
+const panel = dz.closest(".panel");
 const fileInput = document.getElementById("fileInput");
+const fileListBar = document.getElementById("fileListBar");
+const fileCount = document.getElementById("fileCount");
 const fileList = document.getElementById("fileList");
 const options = document.getElementById("options");
 const splitHow = document.getElementById("splitHow");
@@ -23,6 +36,8 @@ const clearBtn = document.getElementById("clearBtn");
 const msg = document.getElementById("msg");
 const result = document.getElementById("result");
 const resultTitle = document.getElementById("resultTitle");
+const statFilesWrap = document.getElementById("statFilesWrap");
+const statFilesLabel = document.getElementById("statFilesLabel");
 const statFiles = document.getElementById("statFiles");
 const statPages = document.getElementById("statPages");
 const statSize = document.getElementById("statSize");
@@ -33,11 +48,11 @@ const runner = createJobRunner("./merge-split-worker.js");
 const { showMsg, hideMsg } = createStatus(msg);
 
 const MODE_TEXT = {
-  merge: { button: "Merge PDFs", hint: "PDFs are joined in the order listed. Use the arrows to reorder them." },
-  split: { button: "Split PDF", hint: "Splits the PDF into several files, delivered as a ZIP." },
+  merge: { button: "Merge PDFs", hint: "PDFs are joined in the order shown." },
+  split: { button: "Split PDF", hint: "Splits the first PDF into separate files as a ZIP." },
   extract: {
     button: "Extract pages",
-    hint: "Enter pages and ranges separated by commas, for example 1-3,5,8-z. The letter z means the last page.",
+    hint: "Enter pages or ranges like 1-3,5,8-z (z means the last page).",
   },
 };
 
@@ -84,12 +99,16 @@ function rangeLabelText([a, b]) {
   return a === b ? `page_${a}` : `pages_${a}-${b}`;
 }
 
+function isUnused(item) {
+  return mode() !== "merge" && items.indexOf(item) > 0;
+}
+
 function setItemView(item) {
   const li = item.el;
   const size = li.querySelector(".file-size");
   const form = li.querySelector(".pms-password");
   li.classList.toggle("is-error", item.state === "error" || item.state === "password");
-  form.hidden = item.state !== "password";
+  form.hidden = isUnused(item) || item.state !== "password";
   if (item.state === "checking") {
     size.textContent = `${formatBytes(item.bytes.byteLength)}, checking…`;
   } else if (item.state === "ready") {
@@ -105,12 +124,18 @@ function renderList() {
   const isMerge = mode() === "merge";
   fileList.replaceChildren(...items.map((it) => it.el));
   items.forEach((it, i) => {
-    it.el.querySelector(".pms-move").hidden = !isMerge || items.length < 2;
+    const unused = !isMerge && i > 0;
+    it.el.classList.toggle("is-unused", unused);
+    it.el.querySelector(".file-badge").hidden = !unused;
+    it.el.querySelector(".order-controls").hidden = !isMerge || items.length < 2;
     it.el.querySelector('[data-act="up"]').disabled = working || i === 0;
     it.el.querySelector('[data-act="down"]').disabled = working || i === items.length - 1;
     it.el.querySelector('[data-act="remove"]').disabled = working;
+    it.el.querySelector(".pms-password").hidden = unused || it.state !== "password";
   });
   const has = items.length > 0;
+  fileListBar.hidden = !has;
+  fileCount.textContent = `${items.length} ${items.length === 1 ? "PDF" : "PDFs"}`;
   fileList.hidden = !has;
   options.hidden = !has;
   dz.hidden = has;
@@ -126,15 +151,17 @@ function updateControls() {
   rangeLabel.textContent = m === "extract" ? "Pages to extract" : "Page ranges, one file per range";
   modeHint.textContent =
     m === "split" && split === "ranges"
-      ? "Each comma-separated range becomes its own file, for example 1-3,4-6,7-z. The letter z means the last page."
+      ? "Each comma-separated range becomes a file (z means the last page)."
       : MODE_TEXT[m].hint;
   runBtn.textContent = MODE_TEXT[m].button;
+  const active = m === "merge" ? items : items.slice(0, 1);
   const usable = m === "merge" ? items.length >= 2 : items.length >= 1;
-  runBtn.disabled = working || !usable || items.some((it) => it.state !== "ready");
+  runBtn.disabled = working || !usable || active.some((it) => it.state !== "ready");
   addBtn.disabled = working;
   clearBtn.disabled = working;
   fileInput.disabled = working;
   addBtn.hidden = m !== "merge";
+  clearBtn.hidden = items.length < 2;
 }
 
 function clearResult() {
@@ -177,7 +204,7 @@ async function inspect(item, password) {
   }
   setItemView(item);
   updateControls();
-  if (item.state === "password") item.el.querySelector(".pms-password input").focus();
+  if (item.state === "password" && !isUnused(item)) item.el.querySelector(".pms-password input").focus();
 }
 
 function createItem(file, buf) {
@@ -189,6 +216,7 @@ function createItem(file, buf) {
   el.querySelector('[data-act="remove"]').addEventListener("click", () => remove(item));
   const form = el.querySelector(".pms-password");
   const pw = form.querySelector("input");
+  initPasswordToggles(el);
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     if (!pw.value) return;
@@ -228,7 +256,6 @@ async function addFiles(files) {
       continue;
     }
     accepted.push(createItem(file, buf));
-    if (single) break;
   }
   if (rejected) {
     showMsg("error", rejected === 1 ? "One file was skipped because it isn't a valid PDF." : `${rejected} files were skipped because they aren't valid PDFs.`);
@@ -237,7 +264,14 @@ async function addFiles(files) {
   }
   if (!accepted.length) return;
   clearResult();
-  items = single ? accepted : [...items, ...accepted];
+  if (single) {
+    items = items.length <= 1 ? accepted : [...accepted, ...items];
+    if (!rejected && items.length > 1) {
+      showMsg("info", "Only the first PDF is used here. Other files stay ready for Merge.");
+    }
+  } else {
+    items = [...items, ...accepted];
+  }
   renderList();
   for (const item of accepted) inspect(item, "");
 }
@@ -246,6 +280,7 @@ function plan() {
   const m = mode();
   if (m === "merge") {
     return {
+      mode: m,
       files: items.map((it) => ({ bytes: it.bytes, password: it.password })),
       outputs: [items.map((it, i) => ({ file: i, range: "1-z" }))],
       names: ["merged.pdf"],
@@ -259,10 +294,11 @@ function plan() {
   const files = [{ bytes: item.bytes, password: item.password }];
   if (m === "extract") {
     const parsed = parseRanges(rangeInput.value, item.pages);
-    if (parsed.error) return parsed;
+    if (parsed.error) return { error: parsed.error, focus: rangeInput };
     const text = parsed.list.map(rangeText).join(",");
     const count = parsed.list.reduce((n, [a, b]) => n + Math.abs(b - a) + 1, 0);
     return {
+      mode: m,
       files,
       outputs: [[{ file: 0, range: text }]],
       names: [downloadName(item.name, "_extracted", "pdf")],
@@ -276,12 +312,12 @@ function plan() {
     list = Array.from({ length: item.pages }, (_, i) => [i + 1, i + 1]);
   } else if (splitSelect.value === "chunks") {
     const n = Number(chunkInput.value);
-    if (!Number.isInteger(n) || n < 1) return { error: "Enter a whole number of pages per file, 1 or more." };
+    if (!Number.isInteger(n) || n < 1) return { error: "Enter a whole number of pages per file, 1 or more.", focus: chunkInput };
     list = [];
     for (let a = 1; a <= item.pages; a += n) list.push([a, Math.min(a + n - 1, item.pages)]);
   } else {
     const parsed = parseRanges(rangeInput.value, item.pages);
-    if (parsed.error) return parsed;
+    if (parsed.error) return { error: parsed.error, focus: rangeInput };
     list = parsed.list;
   }
   const used = new Set();
@@ -292,6 +328,7 @@ function plan() {
     return name;
   });
   return {
+    mode: m,
     files,
     outputs: list.map((r) => [{ file: 0, range: rangeText(r) }]),
     names,
@@ -305,7 +342,7 @@ async function run() {
   const p = plan();
   if (p.error) {
     showMsg("error", p.error);
-    rangeInput.focus();
+    (p.focus || rangeInput).focus();
     return;
   }
   clearResult();
@@ -357,7 +394,17 @@ function finish(p, results) {
   outUrl = URL.createObjectURL(blob);
   downloadBtn.href = outUrl;
   resultTitle.textContent = p.title;
-  statFiles.textContent = String(results.length);
+  if (p.mode === "merge") {
+    statFilesWrap.hidden = false;
+    statFilesLabel.textContent = "Merged";
+    statFiles.textContent = `${p.files.length} PDFs`;
+  } else if (results.length > 1) {
+    statFilesWrap.hidden = false;
+    statFilesLabel.textContent = "Files";
+    statFiles.textContent = `${results.length} PDFs`;
+  } else {
+    statFilesWrap.hidden = true;
+  }
   statPages.textContent = String(p.pages);
   statSize.textContent = formatBytes(total);
   hideMsg();
@@ -376,6 +423,7 @@ function resetAll() {
 }
 
 bindDropzone(dz, fileInput, addFiles);
+bindWorkspaceDrop(panel, addFiles, () => !working && items.length > 0);
 
 addBtn.addEventListener("click", () => fileInput.click());
 clearBtn.addEventListener("click", resetAll);
@@ -386,8 +434,7 @@ for (const radio of document.querySelectorAll('input[name="mode"]')) {
     clearResult();
     hideMsg();
     if (mode() !== "merge" && items.length > 1) {
-      items = items.slice(0, 1);
-      showMsg("info", "Only the first PDF is used for this option.");
+      showMsg("info", "Only the first PDF is used here. Other files stay ready for Merge.");
     }
     renderList();
   });
