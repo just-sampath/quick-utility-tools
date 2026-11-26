@@ -138,6 +138,7 @@ Needs Node 18 or later and nothing else. The script checks that every script par
 
 ```text
 index.html                     home page with the tool cards
+LICENSE                        MIT License for the code in this repository
 assets/css/style.css           shared styles and theme tokens
 assets/js/common.js            theme toggle, worker job runner, file and status helpers
 assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
@@ -159,6 +160,10 @@ tests/fixtures/                small JPG, PNG and WebP files carrying EXIF and G
 ```
 
 Each tool lives in its own folder under `tools/`, gets a card in `index.html` and a section in this README.
+
+## License
+
+The code in this repository is released under the [MIT License](LICENSE).
 
 ## Third-party licenses
 
