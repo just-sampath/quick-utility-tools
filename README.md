@@ -6,6 +6,8 @@ Small tools that run entirely in your browser. No account, no install, no upload
 
 ## PDF tools
 
+The PDF tools run [qpdf](https://github.com/qpdf/qpdf) compiled to WebAssembly. The current build can't repair damaged files the way desktop qpdf does, so a PDF with a broken cross-reference table or a cut-off ending is reported as damaged. Saving a new copy from another PDF app usually fixes it.
+
 ### PDF Password Remover
 
 Removes the password from a PDF you have the password for. Text stays selectable and images stay as they were, because the file is decrypted rather than re-rendered.
@@ -19,7 +21,8 @@ Removes the password from a PDF you have the password for. Text stays selectable
 Locks a PDF with a password using AES-256 encryption. The content is not re-rendered, so text stays selectable and images stay as they were.
 
 - Runs qpdf in a Web Worker, like the password remover. Your file and passwords never leave your device.
-- Asks for the password twice, with an optional separate owner password (defaults to the same password).
+- Asks for the password twice, with an optional separate owner password (defaults to the same password). Passwords can contain any characters, including a leading dash.
+- **Permissions** can block printing, copying text and images, or editing. Blocking anything needs an owner password that differs from the open password, because opening the PDF with the owner password lifts the limits. Most PDF apps respect these limits, but they can't stop someone determined to get around them.
 - PDFs that are already password protected are rejected with a pointer to the remover.
 
 ### PDF Size Reducer
@@ -70,7 +73,7 @@ Combines images into one PDF, one image per page. No PDF library is loaded: the 
 
 ### Image Size Reducer
 
-Shrinks JPG, PNG, WebP and HEIC images, one or many at a time. Results can be downloaded one by one or as a ZIP.
+Shrinks JPG, PNG, WebP and HEIC images, plus AVIF where the browser can open it, one or many at a time. Results can be downloaded one by one or as a ZIP.
 
 - Choose the new size by percent or pixels. The padlock keeps each image's aspect ratio, and unlocking it sets an exact width and height.
 - Choose the format (JPG, WebP or PNG), the quality (1 to 100) and an optional resolution in DPI. JPG and PNG files store the DPI value, WebP files can't.
@@ -102,7 +105,7 @@ Crops, rotates, straightens and flips one image at a time, entirely on a canvas.
 - Drag the crop box or its handles on the picture, or type exact Left, Top, Width and Height values in pixels. Crop shape presets (square, 4:3, 3:2, 16:9 and their portrait versions) keep the ratio while you resize.
 - Rotate in 90 degree steps, flip horizontally or vertically, and straighten by up to 45 degrees in either direction. The crop box resets after a rotation or straightening change.
 - Save as JPG, PNG, WebP or the original format, with a quality setting for JPG and WebP. The fill color (white or black) shows in the corners of a straightened JPG, while PNG and WebP keep them transparent.
-- EXIF orientation is applied on load, and saving strips photo metadata such as camera model and GPS location. Results larger than about 16.7 megapixels are scaled down and flagged.
+- EXIF orientation is applied on load, and saving strips photo metadata such as camera model and GPS location. Results larger than 16 megapixels, just under the browser's canvas limit, are scaled down and flagged.
 
 ### Image Metadata Viewer and Remover
 
@@ -123,6 +126,14 @@ python -m http.server
 
 Then open http://localhost:8000. Opening the files directly (`file://`) won't work, because the Web Workers, ES modules and WASM fetches all need a server.
 
+## Checks
+
+```bash
+node tests/check.mjs
+```
+
+Needs Node 18 or later and nothing else. The script checks that every script parses, that every page's Content-Security-Policy matches its inline scripts and engine use, that CDN packages are pinned, and that the shared ZIP, image-sniffing and image-metadata code behaves. It then runs the real PDF worker files against the pinned qpdf build, which it downloads once into the system temp folder. Add `--offline` to use only that cached copy. The image codec workers need a browser canvas, so test them in a browser.
+
 ## Layout
 
 ```text
@@ -130,8 +141,8 @@ index.html                     home page with the tool cards
 assets/css/style.css           shared styles and theme tokens
 assets/js/common.js            theme toggle, worker job runner, file and status helpers
 assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
-assets/js/codecs.js            on-demand image codecs (MozJPEG, WebP, oxipng, image-q, libheif)
-assets/js/zip.js               small ZIP writer for "Download all"
+assets/js/codecs.js            on-demand image codecs (MozJPEG, WebP, oxipng, image-q, libheif), format sniffing and decode helpers
+assets/js/zip.js               small ZIP writer, CRC32 and the "Download all as ZIP" button
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/pdf-password-adder/      tool page, UI script and encrypt worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
@@ -143,6 +154,8 @@ tools/image-size-reducer/      tool page, UI script and compress worker
 tools/image-converter/         tool page, UI script and convert worker
 tools/image-crop-rotate/       tool page and UI script (canvas only, no worker)
 tools/image-metadata/          tool page, UI script and metadata parser (no worker)
+tests/check.mjs                dependency-free checks (node tests/check.mjs)
+tests/fixtures/                small JPG, PNG and WebP files carrying EXIF and GPS data
 ```
 
 Each tool lives in its own folder under `tools/`, gets a card in `index.html` and a section in this README.
