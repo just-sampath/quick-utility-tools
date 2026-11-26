@@ -17,8 +17,9 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
 
   const runner = createJobRunner(worker);
   const { showMsg, hideMsg } = createStatus(document.getElementById("msg"));
-  const state = { bytes: null, name: "", password: "" };
+  const state = { file: null, name: "", password: "" };
   let url = null;
+  let pickToken = 0;
 
   function busy(on) {
     fileInput.disabled = on;
@@ -34,7 +35,7 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
 
   function reset() {
     runner.cancel();
-    state.bytes = null;
+    state.file = null;
     state.name = "";
     state.password = "";
     hideMsg();
@@ -55,34 +56,39 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
 
   function pick(file) {
     if (!file) return;
+    const token = ++pickToken;
     if (!isPdfFile(file)) {
       reset();
       showMsg("error", NOT_PDF);
       return;
     }
-    file.arrayBuffer().then((buf) => {
+    file.slice(0, 1024).arrayBuffer().then((head) => {
+      if (token !== pickToken) return;
       reset();
-      if (!looksLikePdf(buf)) {
+      if (!looksLikePdf(head)) {
         showMsg("error", BAD_PDF);
         return;
       }
-      state.bytes = buf;
+      state.file = file;
       state.name = file.name;
       fileName.textContent = file.name;
       fileSize.textContent = formatBytes(file.size);
       dz.hidden = true;
       fileRow.hidden = false;
       onFile();
+    }, () => {
+      if (token !== pickToken) return;
+      reset();
+      showMsg("error", BAD_PDF);
     });
   }
 
   async function run(payload, text) {
     busy(true);
     showMsg("info", text, true);
-    const sent = state.bytes.slice(0);
     let r;
     try {
-      r = await runner.run({ bytes: sent, password: state.password, ...payload }, [sent], (p) => showMsg("info", p, true));
+      r = await runner.run({ file: state.file, password: state.password, ...payload }, [], (p) => showMsg("info", p, true));
     } catch {
       busy(false);
       showMsg("error", ENGINE_CRASHED);
@@ -115,7 +121,7 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
     url = URL.createObjectURL(new Blob([outBytes], { type: "application/pdf" }));
     downloadBtn.href = url;
     downloadBtn.download = downloadName(state.name, suffix, "pdf");
-    statBefore.textContent = formatBytes(state.bytes.byteLength);
+    statBefore.textContent = formatBytes(state.file.size);
     statAfter.textContent = formatBytes(outBytes.byteLength);
     hideMsg();
     result.hidden = false;
@@ -126,6 +132,7 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
   initPasswordToggles();
 
   clearBtn.addEventListener("click", () => {
+    pickToken++;
     reset();
     fileRow.hidden = true;
     dz.hidden = false;
@@ -139,15 +146,18 @@ export function createPdfFileTool({ worker, password = null, onFile, onUnlock = 
   if (password) {
     password.form.addEventListener("submit", (e) => {
       e.preventDefault();
-      if (!password.input.value || !state.bytes) return;
+      if (!password.input.value || !state.file) return;
       state.password = password.input.value;
       onUnlock();
     });
   }
 
   return {
-    get bytes() {
-      return state.bytes;
+    get file() {
+      return state.file;
+    },
+    get size() {
+      return state.file ? state.file.size : 0;
     },
     get password() {
       return state.password;

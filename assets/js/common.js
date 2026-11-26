@@ -206,6 +206,10 @@ export function createJobRunner(url, type = "classic") {
       });
     },
     cancel() {
+      if (jobs.size && worker) {
+        worker.terminate();
+        worker = null;
+      }
       jobs.clear();
     },
   };

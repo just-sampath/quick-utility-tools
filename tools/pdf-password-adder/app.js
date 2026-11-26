@@ -105,7 +105,7 @@ for (const box of Object.values(allow)) box.addEventListener("change", syncOwner
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-  if (!tool.bytes) return;
+  if (!tool.file) return;
   if (!pwInput.value) {
     tool.showMsg("error", "Enter a password.");
     pwInput.focus();

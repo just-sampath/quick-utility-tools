@@ -105,7 +105,7 @@ async function compress() {
 }
 
 function finish(outBytes, resized) {
-  const before = tool.bytes.byteLength;
+  const before = tool.size;
   if (outBytes.byteLength > before * 0.99) {
     tool.showMsg("info", preset() === "lossless"
       ? "This PDF is already well optimized. Lossless cleanup couldn't make it any smaller. Try Balanced or Smallest."

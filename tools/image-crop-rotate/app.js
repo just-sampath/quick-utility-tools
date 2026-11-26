@@ -39,6 +39,7 @@ const downloadBtn = $("downloadBtn");
 const { showMsg, hideMsg } = createStatus($("msg"));
 
 const MAX_PIXELS = 16000000;
+const PREVIEW_MAX = 3072;
 const MIN_CROP = 8;
 const HANDLE_HIT = 24;
 const GUTTER = 12;
@@ -47,6 +48,8 @@ const EXTENSIONS = { jpeg: "jpg", webp: "webp", png: "png" };
 
 let file = null;
 let img = null;
+let preview = null;
+let theme = null;
 let quarter = 0;
 let fine = 0;
 let flipH = false;
@@ -68,13 +71,39 @@ function dims() {
   return { W: round(img.width * c + img.height * s), H: round(img.width * s + img.height * c) };
 }
 
-function paint(g, k, ox, oy, tx = 0, ty = 0) {
+function paint(g, k, ox, oy, tx = 0, ty = 0, source = img) {
   const { W, H } = dims();
   g.setTransform(k, 0, 0, k, tx - ox * k, ty - oy * k);
   g.translate(W / 2, H / 2);
   g.scale(flipH ? -1 : 1, flipV ? -1 : 1);
   g.rotate(((quarter * 90 + fine) * Math.PI) / 180);
-  g.drawImage(img, -img.width / 2, -img.height / 2);
+  g.drawImage(source, -img.width / 2, -img.height / 2, img.width, img.height);
+}
+
+function makePreview(bitmap) {
+  const longSide = Math.max(bitmap.width, bitmap.height);
+  if (longSide <= PREVIEW_MAX) return bitmap;
+  const f = PREVIEW_MAX / longSide;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(bitmap.width * f));
+  c.height = Math.max(1, Math.round(bitmap.height * f));
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(bitmap, 0, 0, c.width, c.height);
+  return c;
+}
+
+function themeColors() {
+  if (!theme) {
+    const css = getComputedStyle(document.documentElement);
+    theme = {
+      surface: css.getPropertyValue("--surface").trim() || "#ffffff",
+      surface2: css.getPropertyValue("--surface-2").trim() || "#888",
+      accent: css.getPropertyValue("--accent").trim() || "#4f46e5",
+    };
+  }
+  return theme;
 }
 
 function ratioValue() {
@@ -175,21 +204,21 @@ function draw() {
   const k = scale * dpr;
   const imgW = W * k;
   const imgH = H * k;
-  const css = getComputedStyle(document.documentElement);
+  const colors = themeColors();
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = css.getPropertyValue("--surface").trim() || "#ffffff";
+  ctx.fillStyle = colors.surface;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(g, g, imgW, imgH);
   ctx.clip();
-  ctx.fillStyle = css.getPropertyValue("--surface-2").trim() || "#888";
+  ctx.fillStyle = colors.surface2;
   ctx.fillRect(g, g, imgW, imgH);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
-  paint(ctx, k, 0, 0, g, g);
+  paint(ctx, k, 0, 0, g, g, preview || img);
   ctx.restore();
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -218,7 +247,7 @@ function draw() {
   ctx.strokeStyle = "#ffffff";
   ctx.strokeRect(x, y, w, h);
 
-  const accent = css.getPropertyValue("--accent").trim() || "#4f46e5";
+  const accent = colors.accent;
   const r = 7 * dpr;
   for (const p of handlePoints(x, y, w, h)) {
     ctx.beginPath();
@@ -509,8 +538,13 @@ new ResizeObserver(() => {
 }).observe(view);
 addEventListener("orientationchange", () => setTimeout(scheduleLayout, 200));
 new MutationObserver(() => {
+  theme = null;
   if (img) requestDraw();
 }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  theme = null;
+  if (img) requestDraw();
+});
 
 async function loadFile(f, notice = "") {
   const token = ++loadToken;
@@ -529,8 +563,10 @@ async function loadFile(f, notice = "") {
     return;
   }
   if (img) img.close();
+  if (preview && preview !== img) preview.width = preview.height = 0;
   clearResult();
   img = bitmap;
+  preview = makePreview(bitmap);
   file = f;
   quarter = 0;
   fine = 0;

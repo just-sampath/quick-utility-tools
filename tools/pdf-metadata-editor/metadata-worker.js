@@ -19,9 +19,9 @@ function withPassword(password, args) {
   return password ? ["--password=" + password, ...args] : args;
 }
 
-function exported(q, bytes, password) {
+function exported(q, input, password) {
   qpdfClearJob(q);
-  q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
+  q.FS.writeFile("/job/in.pdf", input);
   const code = qpdfExec(
     q,
     withPassword(password, ["--json=2", "--json-key=qpdf", "--json-stream-data=none", "/job/in.pdf", "/job/o.json"])
@@ -65,10 +65,11 @@ function applyUpdate(q, update, password) {
 }
 
 self.onmessage = async (e) => {
-  const { id, op, bytes, password, changes } = e.data;
+  const { id, op, password, changes } = e.data;
   try {
+    const input = await qpdfInput(e.data);
     const q = await loadQpdf();
-    const r = exported(q, bytes, password);
+    const r = exported(q, input, password);
     if (!r.objects) {
       qpdfClearJob(q);
       self.postMessage({

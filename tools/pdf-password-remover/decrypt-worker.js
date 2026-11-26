@@ -1,11 +1,11 @@
 importScripts("../../assets/js/qpdf.js");
 
 self.onmessage = async (e) => {
-  const { id, bytes, password } = e.data;
+  const { id, password } = e.data;
   try {
     const options = ["--decrypt"];
     if (password) options.unshift("--password=" + password);
-    const { out, passwordProblem } = await runQpdf(bytes, options);
+    const { out, passwordProblem } = await runQpdf(await qpdfInput(e.data), options);
     if (out) {
       self.postMessage({ id, ok: true, bytes: out }, [out.buffer]);
     } else {
