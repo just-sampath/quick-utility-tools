@@ -56,6 +56,8 @@ tools/<tool-name>/                  one folder per tool, self-contained:
 - Version pins live in exactly two files: `QPDF_BASE` in `assets/js/qpdf.js` and the constants at the top of `assets/js/codecs.js`.
 - Engines load lazily inside workers, so the home page and an idle tool page download nothing from the CDN.
 - Theme system: `<html data-theme>` attribute set by an inline snippet in each page's `<head>` (prevents flash), toggled via button, persisted in `localStorage.theme`. Auto dark/light respects `prefers-color-scheme` when no stored preference exists.
+- Each page's `<head>` has a `<link rel="modulepreload">` for every module its entry script imports statically (not dynamic imports or workers), so the browser fetches the whole import tree at once instead of one level at a time. `tests/check.mjs` fails when the list and the imports differ.
+- The home page groups tools by task (Compress, Convert, Edit, Passwords and privacy) in `.tool-group` sheets. Each `.tool-link` carries `data-category="pdf|image"`, which sets its accent color and drives the PDF/Images filter. A new tool goes in the group that matches what it does.
 
 ## Target devices
 
