@@ -1,0 +1,400 @@
+{
+  "base": "https://just-sampath.github.io/quick-utility-tools/",
+  "results": [
+    {
+      "name": "PDF merge: 5 + 3 pages",
+      "tool": "pdf-merge-split",
+      "ok": true,
+      "details": [
+        "8 pages out",
+        "chip reads \"Merged\n:\n2 PDFs\""
+      ],
+      "ms": 849,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-merge-5-3-pages.png"
+    },
+    {
+      "name": "PDF split: every page",
+      "tool": "pdf-merge-split",
+      "ok": true,
+      "details": [
+        "ZIP holds 5 one-page PDFs"
+      ],
+      "ms": 563,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-split-every-page.png"
+    },
+    {
+      "name": "PDF split: every 2 pages",
+      "tool": "pdf-merge-split",
+      "ok": true,
+      "details": [
+        "3 parts: 2, 2 and 1 pages"
+      ],
+      "ms": 583,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-split-every-2-pages.png"
+    },
+    {
+      "name": "PDF extract: pages 2-3,5",
+      "tool": "pdf-merge-split",
+      "ok": true,
+      "details": [
+        "3 pages out"
+      ],
+      "ms": 557,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-extract-pages-2-3-5.png"
+    },
+    {
+      "name": "PDF extract: bad range is rejected",
+      "tool": "pdf-merge-split",
+      "ok": true,
+      "details": [
+        "error: \"Page 9 doesn't exist. This PDF has 5 pages.\""
+      ],
+      "ms": 261,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-extract-bad-range-is-rejected.png"
+    },
+    {
+      "name": "PDF size reducer: image-heavy PDF",
+      "tool": "pdf-size-reducer",
+      "ok": true,
+      "details": [
+        "2575 KB to 191 KB, 3 pages kept"
+      ],
+      "ms": 2980,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-size-reducer-image-heavy-pdf.png"
+    },
+    {
+      "name": "PDF page organizer: delete, rotate, move",
+      "tool": "pdf-page-organizer",
+      "ok": true,
+      "details": [
+        "summary \"4 of 5 pages kept\"",
+        "4 pages, first page turned 90°"
+      ],
+      "ms": 952,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-page-organizer-delete-rotate-move.png"
+    },
+    {
+      "name": "PDF password adder: lock with AES-256",
+      "tool": "pdf-password-adder",
+      "ok": true,
+      "details": [
+        "output is encrypted",
+        "perms chip: \"None\""
+      ],
+      "ms": 900,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-password-adder-lock-with-aes-256.png"
+    },
+    {
+      "name": "PDF password adder: mismatched passwords",
+      "tool": "pdf-password-adder",
+      "ok": true,
+      "details": [
+        "blocked: \"The passwords don't match.\""
+      ],
+      "ms": 1831,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-password-adder-mismatched-passwords.png"
+    },
+    {
+      "name": "PDF password remover: wrong then right password",
+      "tool": "pdf-password-remover",
+      "ok": true,
+      "details": [
+        "wrong password: \"Incorrect password. Try again.\"",
+        "unlocked, 5 pages"
+      ],
+      "ms": 1105,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-password-remover-wrong-then-right-password.png"
+    },
+    {
+      "name": "PDF password remover: unlocked PDF",
+      "tool": "pdf-password-remover",
+      "ok": true,
+      "details": [
+        "message: \"\"",
+        "result: \"Decrypted copy ready\""
+      ],
+      "ms": 1123,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-password-remover-unlocked-pdf.png"
+    },
+    {
+      "name": "PDF metadata editor: change title",
+      "tool": "pdf-metadata-editor",
+      "ok": true,
+      "details": [
+        "read title \"Original Title\"",
+        "saved title \"New E2E Title\", author kept"
+      ],
+      "ms": 772,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-metadata-editor-change-title.png"
+    },
+    {
+      "name": "PDF metadata editor: strip all",
+      "tool": "pdf-metadata-editor",
+      "ok": true,
+      "details": [
+        "title and author removed"
+      ],
+      "ms": 632,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/pdf-metadata-editor-strip-all.png"
+    },
+    {
+      "name": "Images to PDF: 5 formats on A4",
+      "tool": "images-to-pdf",
+      "ok": true,
+      "details": [
+        "5 landscape A4 pages from wide JPG, PNG, WebP, BMP and GIF"
+      ],
+      "ms": 971,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/images-to-pdf-5-formats-on-a4.png"
+    },
+    {
+      "name": "Images to PDF: same size as each image",
+      "tool": "images-to-pdf",
+      "ok": true,
+      "details": [
+        "2 pages shaped like the images, reordered"
+      ],
+      "ms": 612,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/images-to-pdf-same-size-as-each-image.png"
+    },
+    {
+      "name": "Image converter: JPG and PNG to WebP",
+      "tool": "image-converter",
+      "ok": true,
+      "details": [
+        "photo-large.webp 2400x1600",
+        "alpha.webp 600x400"
+      ],
+      "ms": 1440,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-converter-jpg-and-png-to-webp.png"
+    },
+    {
+      "name": "Image converter: WebP to JPG",
+      "tool": "image-converter",
+      "ok": true,
+      "details": [
+        "photo.jpg 1200x800"
+      ],
+      "ms": 953,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-converter-webp-to-jpg.png"
+    },
+    {
+      "name": "Image size reducer: 50% JPG",
+      "tool": "image-size-reducer",
+      "ok": true,
+      "details": [
+        "photo-large_compressed.jpg 1200x800, 852 KB to 34 KB"
+      ],
+      "ms": 1137,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-size-reducer-50-jpg.png"
+    },
+    {
+      "name": "Image size reducer: PNG to WebP",
+      "tool": "image-size-reducer",
+      "ok": true,
+      "details": [
+        "alpha_compressed.webp webp 600x400"
+      ],
+      "ms": 586,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-size-reducer-png-to-webp.png"
+    },
+    {
+      "name": "Image crop: exact box 400x300",
+      "tool": "image-crop-rotate",
+      "ok": true,
+      "details": [
+        "photo_edited.png 400x300"
+      ],
+      "ms": 704,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-crop-exact-box-400x300.png"
+    },
+    {
+      "name": "Image crop: rotate right and flip",
+      "tool": "image-crop-rotate",
+      "ok": true,
+      "details": [
+        "photo_edited.jpg 800x1200"
+      ],
+      "ms": 565,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-crop-rotate-right-and-flip.png"
+    },
+    {
+      "name": "Image crop: GIF and BMP open",
+      "tool": "image-crop-rotate",
+      "ok": true,
+      "details": [
+        "tiny.gif saved as tiny_edited.png (png 300x200)",
+        "photo.bmp saved as photo_edited.png (png 400x300)"
+      ],
+      "ms": 916,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-crop-gif-and-bmp-open.png"
+    },
+    {
+      "name": "Image metadata: strip, keep orientation",
+      "tool": "image-metadata",
+      "ok": true,
+      "details": [
+        "exif_clean.jpg: only the orientation tag left",
+        "exif_clean.png: only the orientation tag left",
+        "exif_clean.webp: only the orientation tag left",
+        "summary: \"exif.jpg 864 B → 689 B · Removed EXIF, GPS, comments Cleaned Details Download Re\""
+      ],
+      "ms": 449,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-metadata-strip-keep-orientation.png"
+    },
+    {
+      "name": "Image metadata: strip, drop orientation",
+      "tool": "image-metadata",
+      "ok": true,
+      "details": [
+        "exif_clean.jpg: no EXIF left",
+        "exif_clean.png: no EXIF left",
+        "exif_clean.webp: no EXIF left",
+        "summary: \"exif.jpg 864 B → 653 B · Removed EXIF, GPS, comments Cleaned Download Remove\""
+      ],
+      "ms": 329,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/image-metadata-strip-drop-orientation.png"
+    },
+    {
+      "name": "Home: filter and search",
+      "tool": null,
+      "ok": true,
+      "details": [
+        "All 11, PDF 7, Images 4",
+        "\"/\" focuses search; \"merge\" finds 1; \"password\" finds its group of 4"
+      ],
+      "ms": 226,
+      "log": {
+        "console": [],
+        "pageErrors": [],
+        "failedRequests": []
+      },
+      "screenshot": "screenshots/home-filter-and-search.png"
+    }
+  ],
+  "layout": {
+    "name": "Layout pass",
+    "pages": 72,
+    "problems": []
+  }
+}
