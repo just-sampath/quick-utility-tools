@@ -1,0 +1,15 @@
+{
+  "name": "quick-utility-tools-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests for the live site. Kept on the test/playwright-e2e branch only.",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "dependencies": {
+    "fflate": "0.8.2",
+    "image-size": "2.0.2",
+    "pdf-lib": "1.17.1",
+    "playwright": "1.64.1"
+  }
+}

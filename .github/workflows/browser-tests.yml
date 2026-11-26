@@ -1,0 +1,68 @@
+name: Browser tests
+
+on:
+  push:
+    branches: [test/playwright-e2e]
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Site to test
+        default: https://just-sampath.github.io/quick-utility-tools/
+
+permissions:
+  contents: write
+
+concurrency:
+  group: browser-tests
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run tests
+        id: run
+        continue-on-error: true
+        run: node run.mjs "${{ github.event.inputs.base_url || 'https://just-sampath.github.io/quick-utility-tools/' }}"
+
+      - name: Add report to the run summary
+        if: always()
+        run: cat results/report.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-test-results
+          path: e2e/results
+
+      - name: Publish results to the results branch
+        if: always()
+        run: |
+          set -e
+          cp -r results /tmp/results
+          cd /tmp/results
+          git init -q -b test/playwright-e2e-results
+          git config user.name "github-actions[bot]"
+          git config user.email "41898341+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Browser test results for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:test/playwright-e2e-results
+
+      - name: Fail if tests failed
+        if: steps.run.outcome == 'failure'
+        run: exit 1
