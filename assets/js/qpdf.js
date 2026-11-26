@@ -12,10 +12,16 @@ function loadQpdf() {
       locateFile: (f) => QPDF_BASE + f,
       print: () => {},
       printErr: () => {},
-    }).then((q) => {
-      q.FS.mkdir("/job");
-      return q;
-    });
+    }).then(
+      (q) => {
+        q.FS.mkdir("/job");
+        return q;
+      },
+      (err) => {
+        qpdfReady = null;
+        throw err;
+      },
+    );
   }
   return qpdfReady;
 }

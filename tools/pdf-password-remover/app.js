@@ -56,7 +56,7 @@ async function decrypt(password) {
   if (r.needsPassword) {
     showPasswordForm();
   } else if (!r.wrongPassword) {
-    showMsg("error", "This PDF couldn't be read. It may be damaged.");
+    showMsg("error", "This PDF couldn't be read. It may be damaged. Saving a new copy from another PDF app often fixes this.");
   } else {
     showMsg("error", "Incorrect password. Double-check and try again.");
     pwInput.focus();

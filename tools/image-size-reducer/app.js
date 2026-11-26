@@ -6,7 +6,8 @@ import {
   downloadName,
   bindDropzone,
 } from "../../assets/js/common.js";
-import { makeZip } from "../../assets/js/zip.js";
+import { bindZipButton } from "../../assets/js/zip.js";
+import { sniffFile } from "../../assets/js/codecs.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -50,64 +51,18 @@ const ERRORS = {
 
 let items = [];
 let batch = 0;
-let zipUrl = null;
 let reference = null;
 let mixed = false;
 let autoFilled = false;
 let refToken = 0;
 let driver = "w";
 
-const PROBE_BYTES = 524288;
-
-function pngInfo(b) {
-  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const info = { animated: false, dpi: 0 };
-  let pos = 8;
-  while (pos + 8 <= b.length) {
-    const len = view.getUint32(pos);
-    const type = String.fromCharCode(...b.subarray(pos + 4, pos + 8));
-    if (type === "IDAT") break;
-    if (type === "acTL") info.animated = true;
-    if (type === "pHYs" && pos + 17 <= b.length && b[pos + 16] === 1) info.dpi = Math.round(view.getUint32(pos + 8) * 0.0254);
-    pos += 12 + len;
-  }
-  return info;
-}
-
-function jpegDpi(b) {
-  let pos = 2;
-  while (pos + 4 <= b.length && b[pos] === 0xff) {
-    const marker = b[pos + 1];
-    if (marker === 0xda || marker === 0xd9) break;
-    const len = (b[pos + 2] << 8) | b[pos + 3];
-    const isJfif = marker === 0xe0 && String.fromCharCode(...b.subarray(pos + 4, pos + 8)) === "JFIF" && len >= 16 && pos + 14 <= b.length;
-    if (isJfif) {
-      const units = b[pos + 11];
-      const x = (b[pos + 12] << 8) | b[pos + 13];
-      if (units === 1) return x;
-      if (units === 2) return Math.round(x * 2.54);
-      return 0;
-    }
-    pos += 2 + len;
-  }
-  return 0;
-}
-
-async function probe(file) {
-  const b = new Uint8Array(await file.slice(0, PROBE_BYTES).arrayBuffer());
-  const text = (from, to) => String.fromCharCode(...b.subarray(from, to));
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: "jpeg", animated: false, dpi: jpegDpi(b) };
-  if (text(1, 4) === "PNG") return { kind: "png", ...pngInfo(b) };
-  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") {
-    return { kind: "webp", animated: text(12, 16) === "VP8X" && (b[20] & 2) === 2, dpi: 0 };
-  }
-  if (text(0, 6) === "GIF87a" || text(0, 6) === "GIF89a") return { kind: "gif" };
-  if (text(4, 8) === "ftyp") {
-    if (text(8, 32).includes("avif") || text(8, 12) === "avis") return { kind: "avif", animated: false, dpi: 0 };
-    if (/^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(text(8, 12))) return { kind: "heic", animated: false, dpi: 0 };
-  }
-  return { kind: null };
-}
+const zip = bindZipButton(
+  zipBtn,
+  "compressed-images.zip",
+  () => items.filter((i) => i.output).map((i) => i.output),
+  () => showMsg("error", "Couldn't prepare the ZIP. Download the images one by one instead."),
+);
 
 function isLocked() {
   return lockBtn.getAttribute("aria-pressed") === "true";
@@ -296,7 +251,7 @@ function clearItemResult(item) {
 }
 
 function addFiles(files) {
-  Promise.all(files.map(async (file) => ({ file, ...(await probe(file)) }))).then((sniffed) => {
+  Promise.all(files.map(async (file) => ({ file, ...(await sniffFile(file)) }))).then((sniffed) => {
     const accepted = sniffed.filter((s) => s.kind && s.kind !== "gif");
     const skipped = sniffed.length - accepted.length;
     const gifs = sniffed.filter((s) => s.kind === "gif").length;
@@ -325,7 +280,7 @@ function addFiles(files) {
     }
     if (skipped) {
       const gifNote = gifs ? ` GIF images aren't supported, because only the first frame would be kept.` : "";
-      showMsg("error", `Skipped ${skipped} file${skipped > 1 ? "s" : ""} that ${skipped > 1 ? "aren't" : "isn't a"} JPG, PNG, WebP or HEIC image${skipped > 1 ? "s" : ""}.${gifNote}`);
+      showMsg("error", `Skipped ${skipped} file${skipped > 1 ? "s" : ""} that ${skipped > 1 ? "aren't" : "isn't a"} JPG, PNG, WebP, HEIC or AVIF image${skipped > 1 ? "s" : ""}.${gifNote}`);
     } else {
       hideMsg();
     }
@@ -385,7 +340,7 @@ function finishItem(item, r) {
     item.flag.hidden = false;
   }
   const pct = Math.min(99, Math.round((1 - blob.size / item.file.size) * 100));
-  item.saving.textContent = r.kept ? "Already optimized" : pct > 0 ? `−${pct}%` : `+${-pct}%`;
+  item.saving.textContent = r.kept ? "Already optimized" : pct > 0 ? `−${pct}%` : pct < 0 ? `+${-pct}%` : "Same size";
   item.saving.classList.toggle("is-none", r.kept || pct <= 0);
   item.saving.hidden = false;
 }
@@ -407,9 +362,7 @@ function showSummary() {
     ? `${capped.length === 1 ? "1 image was" : `${capped.length} images were`} scaled down to about 16.7 megapixels, the browser limit, so ${capped.length === 1 ? "it is" : "they are"} smaller than the size you asked for: ${capped.map((i) => i.file.name).join(", ")}.`
     : "";
   resultFlag.hidden = !capped.length;
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
-  zipBtn.href = "#";
+  zip.reset();
   zipBtn.hidden = done.length < 2;
   result.hidden = false;
 }
@@ -460,8 +413,7 @@ function clearAll() {
   mixed = false;
   autoFilled = false;
   fileList.replaceChildren();
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
+  zip.reset();
   busy(false);
   hideMsg();
   refresh();
@@ -487,7 +439,6 @@ widthInput.addEventListener("input", () => {
   autoFilled = false;
   syncLinked();
   updateSizeNote();
-  updateSizeNote();
 });
 heightInput.addEventListener("input", () => {
   driver = "h";
@@ -504,26 +455,3 @@ lockBtn.addEventListener("click", () => {
 compressBtn.addEventListener("click", compressAll);
 addBtn.addEventListener("click", () => fileInput.click());
 clearBtn.addEventListener("click", clearAll);
-
-zipBtn.addEventListener("click", (e) => {
-  if (zipUrl) return;
-  e.preventDefault();
-  const used = new Map();
-  const files = items
-    .filter((i) => i.output)
-    .map((i) => {
-      let name = i.output.name;
-      const n = used.get(name) || 0;
-      used.set(name, n + 1);
-      if (n) name = name.replace(/(\.[^.]+)$/, ` (${n})$1`);
-      return { name, blob: i.output.blob };
-    });
-  zipBtn.textContent = "Preparing ZIP…";
-  Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) }))).then((entries) => {
-    zipUrl = URL.createObjectURL(makeZip(entries));
-    zipBtn.href = zipUrl;
-    zipBtn.download = "compressed-images.zip";
-    zipBtn.textContent = "Download all as ZIP";
-    zipBtn.click();
-  });
-});

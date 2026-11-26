@@ -136,7 +136,7 @@ async function compress() {
     pwInput.focus();
     pwInput.select();
   } else {
-    showMsg("error", "This PDF couldn't be processed. It may be damaged.");
+    showMsg("error", "This PDF couldn't be processed. It may be damaged. Saving a new copy from another PDF app often fixes this.");
   }
 }
 

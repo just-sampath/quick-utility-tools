@@ -1,30 +1,6 @@
-import { encodeJpeg, encodeWebp, encodePng, decodeHeic } from "../../assets/js/codecs.js";
+import { encodeJpeg, encodeWebp, encodePng, decodeImage, capSize, JobError } from "../../assets/js/codecs.js";
 
-const MAX_PIXELS = 16777216;
 const TYPES = { jpeg: ["image/jpeg", "jpg"], webp: ["image/webp", "webp"], png: ["image/png", "png"] };
-
-class JobError extends Error {
-  constructor(code) {
-    super(code);
-    this.code = code;
-  }
-}
-
-async function decode(file, kind, progress) {
-  try {
-    return await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    if (kind !== "heic") throw new JobError(kind === "avif" ? "avif" : "decode");
-  }
-  progress("Loading the HEIC decoder (first time only)…");
-  let data;
-  try {
-    data = await decodeHeic(await file.arrayBuffer());
-  } catch {
-    throw new JobError("heic");
-  }
-  return createImageBitmap(data);
-}
 
 async function encode(format, imageData, quality) {
   try {
@@ -37,17 +13,9 @@ async function encode(format, imageData, quality) {
 }
 
 async function convert(file, kind, settings, progress) {
-  const bitmap = await decode(file, kind, progress);
+  const bitmap = await decodeImage(file, kind, progress);
   const { format } = settings;
-  let width = bitmap.width;
-  let height = bitmap.height;
-  let capped = false;
-  if (width * height > MAX_PIXELS) {
-    const shrink = Math.sqrt(MAX_PIXELS / (width * height));
-    width = Math.max(1, Math.floor(width * shrink));
-    height = Math.max(1, Math.floor(height * shrink));
-    capped = true;
-  }
+  const { width, height, capped } = capSize(bitmap.width, bitmap.height);
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (format === "jpeg") {
