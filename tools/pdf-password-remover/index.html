@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; img-src data:; worker-src 'self'; connect-src https://cdn.jsdelivr.net; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-0ZxDdlRWLE0snWOzNyQGBvzFX1j3aKuKK8buDOlluUk=' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src data:; worker-src 'self'; connect-src https://cdn.jsdelivr.net; base-uri 'none'; form-action 'none'">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#f2f5fc" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#070911" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#e9eaec" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)">
   <meta name="description" content="Remove passwords from PDF files in your browser, without quality loss. Text stays selectable and images aren't changed. Nothing is uploaded.">
   <title>PDF Password Remover | Quick Utility Tools</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f43f5e'/%3E%3Cstop offset='1' stop-color='%23f97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M17.5 6 9.5 17.5h6L14.5 26l8-11.5h-6z' fill='%23ffffff'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5.5' fill='%2317191e'/%3E%3Cpath d='M6 3.5h8.5l4 4v13H6z' fill='%23e9eaec'/%3E%3Cpath d='M14.5 3.5v4h4z' fill='%23b8235a'/%3E%3Cpath d='M9 12h6.5M9 15.5h4.5' stroke='%232453d6' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E">
   <script>
     document.documentElement.dataset.theme =
       localStorage.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   </script>
+  <link rel="preload" href="../../assets/fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body data-category="pdf">
@@ -21,7 +22,7 @@
     <div class="container">
       <a class="brand" href="../../index.html">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="mark-page" d="M6 3.5h8.5l4 4v13H6z"/><path class="mark-fold" d="M14.5 3.5v4h4z"/><path class="mark-line" d="M9 12h6.5M9 15.5h4.5"/></svg>
         </span>
         <span>Quick Utility Tools</span>
       </a>
@@ -42,7 +43,7 @@
         <span class="tool-category-pill">PDF tools</span>
       </div>
       <div class="tool-head-main">
-        <span class="tool-title-icon icon-tone-crimson" aria-hidden="true">
+        <span class="tool-title-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="14" height="10" rx="2"/><path d="M13 11V7a4 4 0 0 1 8 0v2"/></svg>
         </span>
         <div class="tool-title-copy">
@@ -103,7 +104,7 @@
   </main>
 
   <footer class="site-footer">
-    <div class="container">© Quick Utility Tools · Files never leave your device</div>
+    <div class="container">© Quick Utility Tools. Files never leave your device.</div>
   </footer>
 
   <script type="module" src="./app.js"></script>
