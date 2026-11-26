@@ -1,39 +1,14 @@
-import {
-  initTheme,
-  formatBytes,
-  createJobRunner,
-  createStatus,
-  downloadName,
-  bindDropzone,
-  looksLikePdf,
-} from "../../assets/js/common.js";
+import { initTheme } from "../../assets/js/common.js";
+import { createPdfFileTool } from "../../core/pdf/single-file.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
-const dz = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
-const fileRow = document.getElementById("fileRow");
-const fileName = document.getElementById("fileName");
-const fileSize = document.getElementById("fileSize");
-const clearBtn = document.getElementById("clearBtn");
-const pwBlock = document.getElementById("passwordBlock");
-const pwInput = document.getElementById("passwordInput");
-const unlockBtn = document.getElementById("unlockBtn");
-const msg = document.getElementById("msg");
 const organizer = document.getElementById("organizer");
 const grid = document.getElementById("grid");
 const summary = document.getElementById("summary");
 const resetBtn = document.getElementById("resetBtn");
 const saveBtn = document.getElementById("saveBtn");
-const result = document.getElementById("result");
 const statPages = document.getElementById("statPages");
-const statBefore = document.getElementById("statBefore");
-const statAfter = document.getElementById("statAfter");
-const downloadBtn = document.getElementById("downloadBtn");
-const anotherBtn = document.getElementById("anotherBtn");
-
-const runner = createJobRunner("./organize-worker.js");
-const { showMsg, hideMsg } = createStatus(msg);
 
 const svg = (path) =>
   `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
@@ -46,30 +21,30 @@ const ICON = {
   undo: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
 };
 
-let bytes = null;
-let password = "";
-let currentName = "";
-let url = null;
 let pages = [];
 let dragging = null;
 
-function busy(on) {
-  unlockBtn.disabled = on;
-  fileInput.disabled = on;
-  saveBtn.disabled = on || keptCount() === 0;
-  resetBtn.disabled = on;
-}
+const tool = createPdfFileTool({
+  worker: "./organize-worker.js",
+  password: {
+    form: document.getElementById("passwordBlock"),
+    input: document.getElementById("passwordInput"),
+    button: document.getElementById("unlockBtn"),
+  },
+  onFile: load,
+  onReset: () => {
+    pages = [];
+    grid.replaceChildren();
+    organizer.hidden = true;
+  },
+  onBusy: (on) => {
+    saveBtn.disabled = on || keptCount() === 0;
+    resetBtn.disabled = on;
+  },
+});
 
 function keptCount() {
   return pages.filter((p) => !p.deleted).length;
-}
-
-function clearResult() {
-  result.hidden = true;
-  if (url) {
-    URL.revokeObjectURL(url);
-    url = null;
-  }
 }
 
 function toDataUrl(data) {
@@ -81,46 +56,22 @@ function toDataUrl(data) {
   });
 }
 
-async function load(pw) {
-  busy(true);
-  showMsg("info", pw ? "Unlocking…" : "Reading your PDF…", true);
-  const sent = bytes.slice(0);
-  let r;
-  try {
-    r = await runner.run({ op: "inspect", bytes: sent, password: pw }, [sent]);
-  } catch {
-    busy(false);
-    showMsg("error", "The PDF engine crashed unexpectedly. Reload the page and try again.");
+async function load() {
+  const r = await tool.run({ op: "inspect" }, tool.password ? "Unlocking…" : "Reading your PDF…");
+  if (!r) return;
+  if (!r.ok) {
+    tool.fail(r);
     return;
   }
-  if (r.ok) {
-    password = pw;
-    const urls = {};
-    await Promise.all(Object.entries(r.thumbs).map(async ([key, data]) => (urls[key] = await toDataUrl(data))));
-    if (bytes === null) return;
-    showOrganizer(r.pages, urls);
-    busy(false);
-    return;
-  }
-  busy(false);
-  if (r.fatal) {
-    showMsg("error", "Failed to load the PDF engine. Check your connection and reload the page.");
-  } else if (r.needsPassword) {
-    hideMsg();
-    pwBlock.hidden = false;
-    pwInput.focus();
-  } else if (r.wrongPassword) {
-    showMsg("error", "Incorrect password. Double-check and try again.");
-    pwInput.focus();
-    pwInput.select();
-  } else {
-    showMsg("error", "This PDF couldn't be read. It may be damaged. Saving a new copy from another PDF app often fixes this.");
-  }
+  const bytes = tool.bytes;
+  const urls = {};
+  await Promise.all(Object.entries(r.thumbs).map(async ([key, data]) => (urls[key] = await toDataUrl(data))));
+  if (tool.bytes !== bytes) return;
+  showOrganizer(r.pages, urls);
 }
 
 function showOrganizer(info, urls) {
-  hideMsg();
-  pwBlock.hidden = true;
+  tool.hideMsg();
   grid.replaceChildren();
   pages = info.map((p, i) => ({
     orig: i + 1,
@@ -249,7 +200,7 @@ function turn(page, by) {
 }
 
 function layout() {
-  clearResult();
+  tool.clearResult();
   let position = 0;
   const frag = document.createDocumentFragment();
   pages.forEach((page, i) => {
@@ -286,85 +237,15 @@ function layout() {
 async function save() {
   const order = pages.filter((p) => !p.deleted).map((p) => ({ page: p.orig, rotate: p.turn }));
   if (!order.length) return;
-  busy(true);
-  showMsg("info", "Building your PDF…", true);
-  const sent = bytes.slice(0);
-  let r;
-  try {
-    r = await runner.run({ op: "build", bytes: sent, password, order }, [sent]);
-  } catch {
-    busy(false);
-    showMsg("error", "The PDF engine crashed unexpectedly. Reload the page and try again.");
-    return;
-  }
-  busy(false);
+  const r = await tool.run({ op: "build", order }, "Building your PDF…");
+  if (!r) return;
   if (!r.ok) {
-    showMsg("error", r.fatal ? "Failed to load the PDF engine. Check your connection and reload the page." : "Couldn't build the new PDF.");
+    tool.fail(r, "Couldn't build the new PDF.");
     return;
   }
-  hideMsg();
-  clearResult();
-  url = URL.createObjectURL(new Blob([r.bytes], { type: "application/pdf" }));
-  downloadBtn.href = url;
-  downloadBtn.download = downloadName(currentName, "_organized", "pdf");
   statPages.textContent = String(order.length);
-  statBefore.textContent = formatBytes(bytes.byteLength);
-  statAfter.textContent = formatBytes(r.bytes.byteLength);
-  result.hidden = false;
-  result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  tool.showResult(r.bytes, "_organized");
 }
-
-function resetFile() {
-  runner.cancel();
-  bytes = null;
-  password = "";
-  currentName = "";
-  pages = [];
-  grid.replaceChildren();
-  organizer.hidden = true;
-  clearResult();
-  hideMsg();
-  pwInput.value = "";
-  pwBlock.hidden = true;
-  busy(false);
-}
-
-function pickFile(file) {
-  if (!file) return;
-  if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
-    resetFile();
-    showMsg("error", "That doesn't look like a PDF. Please choose a .pdf file.");
-    return;
-  }
-  file.arrayBuffer().then((buf) => {
-    resetFile();
-    if (!looksLikePdf(buf)) {
-      showMsg("error", "This file doesn't contain valid PDF data.");
-      return;
-    }
-    bytes = buf;
-    currentName = file.name;
-    fileName.textContent = file.name;
-    fileSize.textContent = formatBytes(file.size);
-    dz.hidden = true;
-    fileRow.hidden = false;
-    load("");
-  });
-}
-
-bindDropzone(dz, fileInput, (files) => pickFile(files[0]));
-
-clearBtn.addEventListener("click", () => {
-  resetFile();
-  fileRow.hidden = true;
-  dz.hidden = false;
-});
-
-pwBlock.addEventListener("submit", (e) => {
-  e.preventDefault();
-  if (!pwInput.value || !bytes) return;
-  load(pwInput.value);
-});
 
 saveBtn.addEventListener("click", save);
 
@@ -375,9 +256,4 @@ resetBtn.addEventListener("click", () => {
     p.deleted = false;
   }
   layout();
-});
-
-anotherBtn.addEventListener("click", () => {
-  clearBtn.click();
-  window.scrollTo({ top: 0, behavior: "smooth" });
 });

@@ -1,13 +1,7 @@
-import {
-  initTheme,
-  formatBytes,
-  createJobRunner,
-  createStatus,
-  downloadName,
-  bindDropzone,
-  looksLikePdf,
-} from "../../assets/js/common.js";
+import { initTheme, formatBytes, createJobRunner, createStatus, downloadName, bindDropzone, moveItem } from "../../assets/js/common.js";
 import { makeZip } from "../../assets/js/zip.js";
+import { isPdfFile, looksLikePdf } from "../../core/pdf/files.js";
+import { ENGINE_CRASHED, ENGINE_FAILED, REPAIR_HINT, damaged } from "../../core/pdf/messages.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -161,7 +155,7 @@ async function inspect(item, password) {
   } catch {
     if (!items.includes(item)) return;
     item.state = "error";
-    item.error = "The PDF engine crashed unexpectedly. Reload the page and try again.";
+    item.error = ENGINE_CRASHED;
     setItemView(item);
     updateControls();
     return;
@@ -173,13 +167,13 @@ async function inspect(item, password) {
     item.password = password;
   } else if (r.fatal) {
     item.state = "error";
-    item.error = "Failed to load the PDF engine. Check your connection and reload the page.";
+    item.error = ENGINE_FAILED;
   } else if (r.needsPassword || r.wrongPassword) {
     item.state = "password";
     item.wrong = !!r.wrongPassword;
   } else {
     item.state = "error";
-    item.error = "This PDF couldn't be read. It may be damaged. Saving a new copy from another PDF app often fixes this.";
+    item.error = damaged("read");
   }
   setItemView(item);
   updateControls();
@@ -206,10 +200,7 @@ function createItem(file, buf) {
 }
 
 function move(item, delta) {
-  const i = items.indexOf(item);
-  const j = i + delta;
-  if (j < 0 || j >= items.length) return;
-  [items[i], items[j]] = [items[j], items[i]];
+  if (!moveItem(items, item, delta)) return;
   clearResult();
   renderList();
 }
@@ -227,7 +218,7 @@ async function addFiles(files) {
   const accepted = [];
   let rejected = 0;
   for (const file of files) {
-    if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") {
+    if (!isPdfFile(file)) {
       rejected++;
       continue;
     }
@@ -331,7 +322,7 @@ async function run() {
     if (token !== runToken) return;
     working = false;
     renderList();
-    showMsg("error", "The PDF engine crashed unexpectedly. Reload the page and try again.");
+    showMsg("error", ENGINE_CRASHED);
     return;
   }
   if (token !== runToken) return;
@@ -341,10 +332,10 @@ async function run() {
     showMsg(
       "error",
       r.fatal
-        ? "Failed to load the PDF engine. Check your connection and reload the page."
+        ? ENGINE_FAILED
         : r.passwordProblem
           ? "A PDF in the list couldn't be opened with its password."
-          : "The PDF engine couldn't finish. A file may be damaged. Saving a new copy from another PDF app often fixes this."
+          : `The PDF engine couldn't finish. A file may be damaged. ${REPAIR_HINT}`
     );
     return;
   }

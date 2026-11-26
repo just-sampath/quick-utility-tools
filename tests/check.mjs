@@ -42,7 +42,16 @@ function walk(dir, ext) {
 }
 
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
-const scripts = [...walk("assets", ".js"), ...walk("tools", ".js")];
+const scripts = [...walk("assets", ".js"), ...walk("core", ".js"), ...walk("tools", ".js")];
+
+function localImports(rel, seen = new Set()) {
+  if (seen.has(rel)) return seen;
+  seen.add(rel);
+  for (const m of read(rel).matchAll(/(?:from|import\()\s*"(\.{1,2}\/[^"]+\.js)"/g)) {
+    localImports(path.normalize(path.join(path.dirname(rel), m[1])), seen);
+  }
+  return seen;
+}
 const pages = ["index.html", ...walk("tools", ".html")];
 const isClassic = (rel) => /^importScripts\(/m.test(read(rel)) || rel === path.join("assets", "js", "qpdf.js");
 
@@ -79,9 +88,15 @@ await section("Pages", () => {
     const cdn = csp.includes("https://cdn.jsdelivr.net") && csp.includes("'wasm-unsafe-eval'") && csp.includes("worker-src 'self'");
     check(`${rel} CSP ${engine ? "allows" : "does not allow"} the engine CDN`, engine ? cdn : !/jsdelivr|wasm-unsafe-eval|worker-src/.test(csp));
     if (dir === ".") continue;
-    const js = fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(".js")).map((f) => read(path.join(dir, f))).join("\n");
+    const files = new Set();
+    for (const f of fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith(".js"))) localImports(path.join(dir, f), files);
+    const js = [...files].map(read).join("\n");
     const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
-    for (const m of js.matchAll(/(?:getElementById|\$)\("([^"]+)"\)/g)) check(`${rel} has #${m[1]}`, ids.has(m[1]));
+    for (const m of js.matchAll(/(?:getElementById|\$)\("([^"]+)"\)/g)) check(`${rel} has #${m[1]}`, ids.has(m[1]), `needed by ${[...files].filter((f) => read(f).includes(m[0])).join(", ")}`);
+    if (files.has(path.join("core", "image", "file-list.js"))) {
+      const item = (/<template id="itemTemplate">([\s\S]*?)<\/template>/.exec(html) || [])[1] || "";
+      for (const part of ["file-meta", "file-name", "file-size", "saving", "<a ", "data-remove"]) check(`${rel} item template has ${part}`, item.includes(part));
+    }
   }
 });
 

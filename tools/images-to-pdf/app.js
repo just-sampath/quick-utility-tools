@@ -1,4 +1,5 @@
-import { initTheme, formatBytes, createJobRunner, createStatus, bindDropzone } from "../../assets/js/common.js";
+import { initTheme, formatBytes, createJobRunner, createStatus, bindDropzone, moveItem } from "../../assets/js/common.js";
+import { DECODE_ERRORS } from "../../core/image/messages.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -23,9 +24,7 @@ const runner = createJobRunner("./convert-worker.js", "module");
 const { showMsg, hideMsg } = createStatus(document.getElementById("msg"));
 
 const ERRORS = {
-  decode: "Couldn't read this image.",
-  avif: "This browser can't open AVIF images.",
-  heic: "Couldn't read this HEIC image.",
+  ...DECODE_ERRORS,
   none: "None of the images could be read.",
   crashed: "Ran out of memory. Try fewer or smaller images.",
 };
@@ -73,11 +72,7 @@ function render() {
 }
 
 function move(item, delta) {
-  const i = items.indexOf(item);
-  const j = i + delta;
-  if (j < 0 || j >= items.length) return;
-  [items[i], items[j]] = [items[j], items[i]];
-  changed();
+  if (moveItem(items, item, delta)) changed();
 }
 
 function changed() {
