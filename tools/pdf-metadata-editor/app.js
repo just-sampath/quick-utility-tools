@@ -46,10 +46,16 @@ let hasXmp = false;
 const pad = (n, w = 2) => String(n).padStart(w, "0");
 
 function pdfDateToInput(raw) {
-  const m = /^D:(\d{4})(\d\d)?(\d\d)?(\d\d)?(\d\d)?(\d\d)?/.exec(raw || "");
+  const m = /^D:(\d{4})(\d\d)?(\d\d)?(\d\d)?(\d\d)?(\d\d)?(?:([Zz+-])(\d\d)?'?(\d\d)?)?/.exec(raw || "");
   if (!m) return "";
-  const [, y, mo = "01", d = "01", h = "00", mi = "00", s = "00"] = m;
-  return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+  const [, y, mo = "01", d = "01", h = "00", mi = "00", s = "00", zone, zh = "00", zm = "00"] = m;
+  if (!zone) return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+  const offset = zone === "+" || zone === "-" ? (zone === "-" ? -1 : 1) * (Number(zh) * 60 + Number(zm)) : 0;
+  const when = new Date(0);
+  when.setUTCFullYear(Number(y), Number(mo) - 1, Number(d));
+  when.setUTCHours(Number(h), Number(mi) - offset, Number(s));
+  if (Number.isNaN(when.getTime())) return "";
+  return `${pad(when.getFullYear(), 4)}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}:${pad(when.getSeconds())}`;
 }
 
 function inputToPdfDate(value) {
@@ -133,7 +139,7 @@ async function load(pw) {
     pwInput.focus();
     pwInput.select();
   } else {
-    showMsg("error", "This PDF couldn't be read. It may be damaged.");
+    showMsg("error", "This PDF couldn't be read. It may be damaged. Saving a new copy from another PDF app often fixes this.");
   }
 }
 
@@ -144,7 +150,7 @@ async function produce(op, title, suffix, text, extra) {
   if (!r.ok) {
     showMsg(
       "error",
-      r.fatal ? "Failed to load the PDF engine. Check your connection and reload the page." : "This PDF couldn't be saved. It may be damaged."
+      r.fatal ? "Failed to load the PDF engine. Check your connection and reload the page." : "This PDF couldn't be saved. It may be damaged. Saving a new copy from another PDF app often fixes this."
     );
     return;
   }

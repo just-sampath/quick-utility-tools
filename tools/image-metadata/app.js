@@ -1,5 +1,5 @@
 import { initTheme, formatBytes, createStatus, downloadName, bindDropzone } from "../../assets/js/common.js";
-import { makeZip } from "../../assets/js/zip.js";
+import { bindZipButton } from "../../assets/js/zip.js";
 import { readMetadata, stripMetadata } from "./metadata.js";
 
 initTheme(document.querySelector(".theme-toggle"));
@@ -40,7 +40,13 @@ const TYPES = { jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
 const EXTS = { jpeg: "jpg", png: "png", webp: "webp" };
 
 let items = [];
-let zipUrl = null;
+
+const zip = bindZipButton(
+  zipBtn,
+  "clean-images.zip",
+  () => items.filter((i) => i.output).map((i) => i.output),
+  () => showMsg("error", "Couldn't prepare the ZIP. Download the images one by one instead."),
+);
 
 function idleText(item) {
   const size = formatBytes(item.file.size);
@@ -198,7 +204,7 @@ async function stripAll() {
     const blob = r.changed ? new Blob([r.bytes], { type }) : item.file;
     const original = item.file.name.match(/\.([a-z0-9]+)$/i);
     const ext = original ? original[1].toLowerCase() : EXTS[item.meta.format];
-    const name = r.changed ? downloadName(item.file.name, "-clean", ext) : item.file.name;
+    const name = r.changed ? downloadName(item.file.name, "_clean", ext) : item.file.name;
     item.output = { blob, name, removed: r.changed };
     item.url = URL.createObjectURL(blob);
     item.download.href = item.url;
@@ -234,9 +240,7 @@ function showSummary() {
   statBefore.textContent = formatBytes(before);
   statAfter.textContent = formatBytes(after);
   statSaved.textContent = after < before ? formatBytes(before - after) : "nothing";
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
-  zipBtn.href = "#";
+  zip.reset();
   zipBtn.hidden = done.length < 2;
   result.hidden = false;
 }
@@ -245,8 +249,7 @@ function clearAll() {
   for (const item of items) clearItemResult(item);
   items = [];
   fileList.replaceChildren();
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
+  zip.reset();
   busy(false);
   hideMsg();
   refresh();
@@ -262,29 +265,3 @@ options.addEventListener("drop", (e) => {
 stripBtn.addEventListener("click", stripAll);
 addBtn.addEventListener("click", () => fileInput.click());
 clearBtn.addEventListener("click", clearAll);
-
-zipBtn.addEventListener("click", (e) => {
-  if (zipUrl) return;
-  e.preventDefault();
-  const used = new Map();
-  const files = items
-    .filter((i) => i.output)
-    .map((i) => {
-      let name = i.output.name;
-      const n = used.get(name) || 0;
-      used.set(name, n + 1);
-      if (n) name = name.replace(/(\.[^.]+)$/, ` (${n})$1`);
-      return { name, blob: i.output.blob };
-    });
-  zipBtn.textContent = "Preparing ZIP…";
-  Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) }))).then((entries) => {
-    zipUrl = URL.createObjectURL(makeZip(entries));
-    zipBtn.href = zipUrl;
-    zipBtn.download = "clean-images.zip";
-    zipBtn.textContent = "Download all as ZIP";
-    zipBtn.click();
-  }).catch(() => {
-    zipBtn.textContent = "Download all as ZIP";
-    showMsg("error", "Couldn't prepare the ZIP. Download the images one by one instead.");
-  });
-});

@@ -1,5 +1,6 @@
 import { initTheme, formatBytes, createJobRunner, createStatus, downloadName, bindDropzone } from "../../assets/js/common.js";
-import { makeZip } from "../../assets/js/zip.js";
+import { bindZipButton } from "../../assets/js/zip.js";
+import { sniffFile } from "../../assets/js/codecs.js";
 
 initTheme(document.querySelector(".theme-toggle"));
 
@@ -41,39 +42,16 @@ const FORMAT_NOTES = {
   webp: "WebP supports transparency and is usually smaller than JPG or PNG.",
 };
 const ANIM_NOTE = "animated, only the first frame is kept";
-const PROBE_BYTES = 524288;
 
 let items = [];
 let batch = 0;
-let zipUrl = null;
 
-async function probe(file) {
-  const b = new Uint8Array(await file.slice(0, PROBE_BYTES).arrayBuffer());
-  const text = (from, to) => String.fromCharCode(...b.subarray(from, to));
-  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { kind: "jpeg", animated: false };
-  if (text(1, 4) === "PNG") return { kind: "png", animated: pngAnimated(b) };
-  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") {
-    return { kind: "webp", animated: text(12, 16) === "VP8X" && (b[20] & 2) === 2 };
-  }
-  if (text(0, 6) === "GIF87a" || text(0, 6) === "GIF89a") return { kind: "gif" };
-  if (text(4, 8) === "ftyp") {
-    if (text(8, 32).includes("avif") || text(8, 12) === "avis") return { kind: "avif", animated: false };
-    if (/^(heic|heix|hevc|hevx|heim|heis|mif1|msf1)$/.test(text(8, 12))) return { kind: "heic", animated: false };
-  }
-  return { kind: null };
-}
-
-function pngAnimated(b) {
-  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  let pos = 8;
-  while (pos + 8 <= b.length) {
-    const type = String.fromCharCode(...b.subarray(pos + 4, pos + 8));
-    if (type === "IDAT") return false;
-    if (type === "acTL") return true;
-    pos += 12 + view.getUint32(pos);
-  }
-  return false;
-}
+const zip = bindZipButton(
+  zipBtn,
+  "converted-images.zip",
+  () => items.filter((i) => i.output).map((i) => i.output),
+  () => showMsg("error", "Couldn't prepare the ZIP. Download the images one by one instead."),
+);
 
 function currentSettings() {
   const quality = Number(qualityInput.value.trim() === "" ? 0 : qualityInput.value);
@@ -123,7 +101,7 @@ function clearItemResult(item) {
 }
 
 function addFiles(files) {
-  Promise.all(files.map(async (file) => ({ file, ...(await probe(file)) }))).then((sniffed) => {
+  Promise.all(files.map(async (file) => ({ file, ...(await sniffFile(file)) }))).then((sniffed) => {
     const accepted = sniffed.filter((s) => s.kind && s.kind !== "gif");
     const skipped = sniffed.length - accepted.length;
     const gifs = sniffed.filter((s) => s.kind === "gif").length;
@@ -230,9 +208,7 @@ function showSummary() {
     ? `${capped.length === 1 ? "1 image was" : `${capped.length} images were`} scaled down to about 16.7 megapixels, the browser limit: ${capped.map((i) => i.file.name).join(", ")}.`
     : "";
   resultFlag.hidden = !capped.length;
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
-  zipBtn.href = "#";
+  zip.reset();
   zipBtn.hidden = done.length < 2;
   result.hidden = false;
 }
@@ -277,8 +253,7 @@ function clearAll() {
   for (const item of items) clearItemResult(item);
   items = [];
   fileList.replaceChildren();
-  if (zipUrl) URL.revokeObjectURL(zipUrl);
-  zipUrl = null;
+  zip.reset();
   busy(false);
   hideMsg();
   refresh();
@@ -301,26 +276,3 @@ updateFormat();
 convertBtn.addEventListener("click", convertAll);
 addBtn.addEventListener("click", () => fileInput.click());
 clearBtn.addEventListener("click", clearAll);
-
-zipBtn.addEventListener("click", (e) => {
-  if (zipUrl) return;
-  e.preventDefault();
-  const used = new Map();
-  const files = items
-    .filter((i) => i.output)
-    .map((i) => {
-      let name = i.output.name;
-      const n = used.get(name) || 0;
-      used.set(name, n + 1);
-      if (n) name = name.replace(/(\.[^.]+)$/, ` (${n})$1`);
-      return { name, blob: i.output.blob };
-    });
-  zipBtn.textContent = "Preparing ZIP…";
-  Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) }))).then((entries) => {
-    zipUrl = URL.createObjectURL(makeZip(entries));
-    zipBtn.href = zipUrl;
-    zipBtn.download = "converted-images.zip";
-    zipBtn.textContent = "Download all as ZIP";
-    zipBtn.click();
-  });
-});

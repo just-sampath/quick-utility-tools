@@ -1,30 +1,7 @@
-import { encodeJpeg, encodeWebp, encodePng, decodeHeic } from "../../assets/js/codecs.js";
+import { encodeJpeg, encodeWebp, encodePng, decodeImage, capSize, JobError } from "../../assets/js/codecs.js";
+import { crc32 } from "../../assets/js/zip.js";
 
-const MAX_PIXELS = 16777216;
 const TYPES = { jpeg: ["image/jpeg", "jpg"], webp: ["image/webp", "webp"], png: ["image/png", "png"] };
-
-class JobError extends Error {
-  constructor(code) {
-    super(code);
-    this.code = code;
-  }
-}
-
-async function decode(file, kind, progress) {
-  try {
-    return await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    if (kind !== "heic") throw new JobError(kind === "avif" ? "avif" : "decode");
-  }
-  progress("Loading the HEIC decoder (first time only)…");
-  let data;
-  try {
-    data = await decodeHeic(await file.arrayBuffer());
-  } catch {
-    throw new JobError("heic");
-  }
-  return createImageBitmap(data);
-}
 
 async function encode(format, imageData, settings) {
   try {
@@ -51,18 +28,6 @@ function targetFactors(settings, bw, bh) {
     fx = fy = f;
   }
   return [fx ?? fy ?? 1, fy ?? fx ?? 1];
-}
-
-const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-  let c = n;
-  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-  return c >>> 0;
-});
-
-function crc32(bytes) {
-  let c = 0xffffffff;
-  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
 }
 
 function setPngDpi(buffer, dpi) {
@@ -101,18 +66,10 @@ function setJpegDpi(buffer, dpi) {
 }
 
 async function compress(file, kind, settings, progress) {
-  const bitmap = await decode(file, kind, progress);
+  const bitmap = await decodeImage(file, kind, progress);
   const format = settings.format === "same" ? (kind in TYPES ? kind : "jpeg") : settings.format;
   const [fx, fy] = targetFactors(settings, bitmap.width, bitmap.height);
-  let width = Math.max(1, Math.round(bitmap.width * fx));
-  let height = Math.max(1, Math.round(bitmap.height * fy));
-  let capped = false;
-  if (width * height > MAX_PIXELS) {
-    const shrink = Math.sqrt(MAX_PIXELS / (width * height));
-    width = Math.max(1, Math.floor(width * shrink));
-    height = Math.max(1, Math.floor(height * shrink));
-    capped = true;
-  }
+  const { width, height, capped } = capSize(Math.max(1, Math.round(bitmap.width * fx)), Math.max(1, Math.round(bitmap.height * fy)));
   const resized = width !== bitmap.width || height !== bitmap.height;
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext("2d", { willReadFrequently: true });

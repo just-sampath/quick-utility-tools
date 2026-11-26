@@ -60,7 +60,13 @@
         <input type="password" id="confirmInput" autocomplete="new-password" placeholder="Enter it again">
         <label for="ownerInput">Owner password (optional)</label>
         <input type="password" id="ownerInput" autocomplete="new-password" placeholder="Same as the password above if left empty">
-        <p class="padd-hint">The owner password lets you change permissions later. Keep both somewhere safe: a lost password can't be recovered.</p>
+        <fieldset class="field padd-perms">
+          <legend class="field-label">Permissions</legend>
+          <label class="check-row"><input type="checkbox" id="allowPrint" checked><span>Allow printing</span></label>
+          <label class="check-row"><input type="checkbox" id="allowCopy" checked><span>Allow copying text and images</span></label>
+          <label class="check-row"><input type="checkbox" id="allowEdit" checked><span>Allow editing</span></label>
+        </fieldset>
+        <p class="padd-hint">Blocking printing, copying or editing needs an owner password that differs from the password above, because opening the PDF with the owner password lifts the limits. Most PDF apps respect them, but they can't stop someone determined to get around them. Keep both passwords somewhere safe: a lost password can't be recovered.</p>
         <div class="padd-actions">
           <button class="btn btn-secondary" id="showBtn" type="button" aria-pressed="false">Show passwords</button>
           <button class="btn btn-primary" id="protectBtn" type="submit">Protect PDF</button>
@@ -77,6 +83,7 @@
         <div class="result-stats">
           <span>Original: <strong id="statBefore"></strong></span>
           <span>Protected: <strong id="statAfter"></strong></span>
+          <span>Restrictions: <strong id="statPerms"></strong></span>
         </div>
         <a class="btn btn-primary" id="downloadBtn" download>Download protected PDF</a>
         <button class="btn btn-secondary" id="anotherBtn" type="button">Process another file</button>

@@ -531,12 +531,12 @@ saveBtn.addEventListener("click", async () => {
     const gotKind = blob.type === "image/jpeg" ? "jpeg" : blob.type === "image/webp" ? "webp" : "png";
     downloadUrl = URL.createObjectURL(blob);
     downloadBtn.href = downloadUrl;
-    downloadBtn.download = downloadName(file.name, "-edited", EXTENSIONS[gotKind]);
+    downloadBtn.download = downloadName(file.name, "_edited", EXTENSIONS[gotKind]);
     $("statDims").textContent = `${ow} × ${oh} px`;
     $("statBefore").textContent = formatBytes(file.size);
     $("statAfter").textContent = formatBytes(blob.size);
     const notes = [];
-    if (k < 1) notes.push(`The result was scaled down from ${crop.w} × ${crop.h} px to fit the browser's canvas limit of about 16.7 megapixels.`);
+    if (k < 1) notes.push(`The result was scaled down from ${crop.w} × ${crop.h} px to stay within this tool's limit of 16 megapixels, just under the browser's canvas limit.`);
     if (gotKind !== kind) notes.push(`This browser can't save ${kind === "webp" ? "WebP" : "JPG"} files, so the image was saved as ${gotKind.toUpperCase()}.`);
     if (blob.size > file.size) notes.push("The new file is larger than the original. Lower the quality or choose JPG or WebP to make it smaller.");
     resultFlag.textContent = notes.join(" ");
