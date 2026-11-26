@@ -25,8 +25,10 @@ async function convert(file, kind, settings, progress) {
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
+  const imageData = ctx.getImageData(0, 0, width, height);
+  canvas.width = canvas.height = 0;
   progress("Converting…");
-  const bytes = await encode(format, ctx.getImageData(0, 0, width, height), settings.quality);
+  const bytes = await encode(format, imageData, settings.quality);
   return { bytes, type: TYPES[format][0], ext: TYPES[format][1], width, height, capped };
 }
 

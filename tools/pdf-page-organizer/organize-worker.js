@@ -71,10 +71,10 @@ function exportThumbnails(q, pw, src, keys) {
   return thumbs;
 }
 
-async function inspect(bytes, password) {
+async function inspect(input, password) {
   const q = await loadQpdf();
   qpdfClearJob(q);
-  q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
+  q.FS.writeFile("/job/in.pdf", input);
   const pw = password ? ["--password=" + password] : [];
   const code = qpdfExec(q, [...pw, "--json=2", "--json-key=pages", "--json-key=qpdf", "--json-stream-data=none", "/job/in.pdf", "/job/info.json"]);
   if (!succeeded(code)) {
@@ -96,10 +96,10 @@ async function inspect(bytes, password) {
   return { result: { ok: true, pages, thumbs }, transfer: Object.values(thumbs).map((t) => t.buffer) };
 }
 
-async function build(bytes, password, order) {
+async function build(input, password, order) {
   const q = await loadQpdf();
   qpdfClearJob(q);
-  q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
+  q.FS.writeFile("/job/in.pdf", input);
   const args = [];
   if (password) args.push("--password=" + password);
   args.push("/job/in.pdf", "--pages", ".", order.map((o) => o.page).join(","), "--");
@@ -118,13 +118,13 @@ async function build(bytes, password, order) {
 }
 
 self.onmessage = async (e) => {
-  const { id, op, bytes, password, order } = e.data;
+  const { id, op, password, order } = e.data;
   try {
     if (op === "inspect") {
-      const { result, transfer } = await inspect(bytes, password);
+      const { result, transfer } = await inspect(await qpdfInput(e.data), password);
       self.postMessage({ id, ...result }, transfer || []);
     } else {
-      const out = await build(bytes, password, order);
+      const out = await build(await qpdfInput(e.data), password, order);
       if (out) self.postMessage({ id, ok: true, bytes: out }, [out.buffer]);
       else self.postMessage({ id, ok: false });
     }

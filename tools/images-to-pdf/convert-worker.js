@@ -3,10 +3,36 @@ import { createPdf, flate } from "./pdf-writer.js";
 
 const PX_TO_PT = 0.75;
 const PAGES = { a4: [595.28, 841.89], letter: [612, 792] };
+const ICC_ID = "ICC_PROFILE\0";
+
+function iccProfile(chunks, components) {
+  const count = chunks.length ? chunks[0].count : 0;
+  if (!count || chunks.length !== count || chunks.some((c) => c.count !== count)) return null;
+  const parts = [];
+  for (let seq = 1; seq <= count; seq++) {
+    const part = chunks.find((c) => c.seq === seq);
+    if (!part) return null;
+    parts.push(part.data);
+  }
+  const size = parts.reduce((n, p) => n + p.length, 0);
+  if (size < 132) return null;
+  const icc = new Uint8Array(size);
+  let at = 0;
+  for (const p of parts) {
+    icc.set(p, at);
+    at += p.length;
+  }
+  const declared = ((icc[0] << 24) | (icc[1] << 16) | (icc[2] << 8) | icc[3]) >>> 0;
+  const space = String.fromCharCode(...icc.subarray(16, 20));
+  if (declared > size || String.fromCharCode(...icc.subarray(36, 40)) !== "acsp") return null;
+  if (!(components === 3 ? space === "RGB " : space === "GRAY")) return null;
+  return icc;
+}
 
 function jpegInfo(b) {
   if (b[0] !== 0xff || b[1] !== 0xd8) return null;
-  const info = { components: 0, width: 0, height: 0, orientation: 1 };
+  const info = { components: 0, width: 0, height: 0, orientation: 1, icc: null };
+  const iccChunks = [];
   let pos = 2;
   while (pos + 4 <= b.length && b[pos] === 0xff) {
     const marker = b[pos + 1];
@@ -36,12 +62,16 @@ function jpegInfo(b) {
         }
       }
     }
+    if (marker === 0xe2 && len > 16 && pos + 2 + len <= b.length && String.fromCharCode(...b.subarray(pos + 4, pos + 16)) === ICC_ID) {
+      iccChunks.push({ seq: b[pos + 16], count: b[pos + 17], data: b.subarray(pos + 18, pos + 2 + len) });
+    }
     const isSof = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
     if (isSof) {
       info.baselineOrProgressive = marker === 0xc0 || marker === 0xc1 || marker === 0xc2;
       info.height = (b[pos + 5] << 8) | b[pos + 6];
       info.width = (b[pos + 7] << 8) | b[pos + 8];
       info.components = b[pos + 9];
+      info.icc = iccProfile(iccChunks, info.components);
       return info;
     }
     if (marker === 0xda) break;
@@ -58,6 +88,7 @@ async function rasterize(file, head, progress) {
   ctx.drawImage(bitmap, 0, 0, w, h);
   bitmap.close();
   const rgba = ctx.getImageData(0, 0, w, h).data;
+  canvas.width = canvas.height = 0;
   const rgb = new Uint8Array(w * h * 3);
   const alpha = new Uint8Array(w * h);
   let hasAlpha = false;
@@ -96,6 +127,8 @@ async function prepare(file, progress) {
         width: info.width,
         height: info.height,
         colorSpace: info.components === 1 ? "DeviceGray" : "DeviceRGB",
+        icc: info.icc ? await flate(info.icc) : null,
+        components: info.components,
         filter: "DCTDecode",
         data: bytes,
         alpha: null,
@@ -155,9 +188,15 @@ async function convert(files, settings, id) {
         img.alpha,
       );
     }
+    let colorSpace = "/" + img.colorSpace;
+    if (img.icc) {
+      const iccId = pdf.reserve();
+      pdf.object(iccId, `/N ${img.components} /Alternate /${img.colorSpace} /Filter /FlateDecode`, img.icc);
+      colorSpace = `[/ICCBased ${iccId} 0 R]`;
+    }
     pdf.object(
       imageId,
-      `/Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /${img.colorSpace} /BitsPerComponent 8 /Filter /${img.filter}` +
+      `/Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace ${colorSpace} /BitsPerComponent 8 /Filter /${img.filter}` +
         (smaskId ? ` /SMask ${smaskId} 0 R` : ""),
       img.data,
     );

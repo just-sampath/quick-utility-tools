@@ -4,9 +4,26 @@ const CRC_TABLE = new Uint32Array(256).map((_, n) => {
   return c;
 });
 
-export function crc32(bytes) {
-  let c = 0xffffffff;
+const CRC_CHUNK = 8 * 1024 * 1024;
+
+function crcUpdate(c, bytes) {
   for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return c;
+}
+
+export function crc32(bytes) {
+  return (crcUpdate(0xffffffff, bytes) ^ 0xffffffff) >>> 0;
+}
+
+export async function crc32Async(data) {
+  const isBlob = typeof Blob !== "undefined" && data instanceof Blob;
+  const size = isBlob ? data.size : data.length;
+  let c = 0xffffffff;
+  for (let at = 0; at < size; at += CRC_CHUNK) {
+    const part = isBlob ? new Uint8Array(await data.slice(at, at + CRC_CHUNK).arrayBuffer()) : data.subarray(at, at + CRC_CHUNK);
+    c = crcUpdate(c, part);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
   return (c ^ 0xffffffff) >>> 0;
 }
 
@@ -22,9 +39,11 @@ export function makeZip(files) {
   const parts = [];
   const central = [];
   let offset = 0;
-  for (const { name, bytes } of files) {
+  for (const { name, bytes, blob, crc: known } of files) {
     const nameBytes = enc.encode(name);
-    const crc = crc32(bytes);
+    const data = blob || bytes;
+    const length = blob ? blob.size : bytes.length;
+    const crc = known ?? crc32(bytes);
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, 0x04034b50, true);
     local.setUint16(4, 20, true);
@@ -32,10 +51,10 @@ export function makeZip(files) {
     local.setUint16(10, time, true);
     local.setUint16(12, date, true);
     local.setUint32(14, crc, true);
-    local.setUint32(18, bytes.length, true);
-    local.setUint32(22, bytes.length, true);
+    local.setUint32(18, length, true);
+    local.setUint32(22, length, true);
     local.setUint16(26, nameBytes.length, true);
-    parts.push(local, nameBytes, bytes);
+    parts.push(local, nameBytes, data);
     const entry = new DataView(new ArrayBuffer(46));
     entry.setUint32(0, 0x02014b50, true);
     entry.setUint16(4, 20, true);
@@ -44,12 +63,12 @@ export function makeZip(files) {
     entry.setUint16(12, time, true);
     entry.setUint16(14, date, true);
     entry.setUint32(16, crc, true);
-    entry.setUint32(20, bytes.length, true);
-    entry.setUint32(24, bytes.length, true);
+    entry.setUint32(20, length, true);
+    entry.setUint32(24, length, true);
     entry.setUint16(28, nameBytes.length, true);
     entry.setUint32(42, offset, true);
     central.push(entry, nameBytes);
-    offset += 30 + nameBytes.length + bytes.length;
+    offset += 30 + nameBytes.length + length;
   }
   const centralSize = central.reduce((n, p) => n + p.byteLength, 0);
   const end = new DataView(new ArrayBuffer(22));
@@ -59,6 +78,12 @@ export function makeZip(files) {
   end.setUint32(12, centralSize, true);
   end.setUint32(16, offset, true);
   return new Blob([...parts, ...central, end], { type: "application/zip" });
+}
+
+export async function buildZip(files) {
+  const entries = [];
+  for (const f of files) entries.push({ ...f, crc: await crc32Async(f.blob || f.bytes) });
+  return makeZip(entries);
 }
 
 function uniqueNames(files) {
@@ -84,10 +109,10 @@ export function bindZipButton(button, zipName, getFiles, onError) {
     const mine = ++token;
     button.textContent = "Preparing ZIP…";
     const files = uniqueNames(getFiles());
-    Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.blob.arrayBuffer()) })))
-      .then((entries) => {
+    buildZip(files)
+      .then((zip) => {
         if (mine !== token) return;
-        url = URL.createObjectURL(makeZip(entries));
+        url = URL.createObjectURL(zip);
         button.href = url;
         button.download = zipName;
         button.textContent = label;

@@ -258,6 +258,26 @@ async function samplePdf() {
   return new Uint8Array(await pdf.finish(catalogId, infoId).arrayBuffer());
 }
 
+async function longPdf(count) {
+  const { createPdf } = await importModule("tools/images-to-pdf/pdf-writer.js");
+  const pdf = createPdf();
+  const catalogId = pdf.reserve();
+  const pagesId = pdf.reserve();
+  const infoId = pdf.reserve();
+  const pageIds = [];
+  for (let i = 0; i < count; i++) {
+    const contentId = pdf.reserve();
+    const pageId = pdf.reserve();
+    pdf.object(contentId, "", new TextEncoder().encode(`q 0 0 1 rg 50 50 ${10 + i} 100 re f Q`));
+    pdf.object(pageId, `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents ${contentId} 0 R >>`);
+    pageIds.push(pageId);
+  }
+  pdf.object(pagesId, `<< /Type /Pages /Count ${count} /Kids [${pageIds.map((p) => p + " 0 R").join(" ")}] >>`);
+  pdf.object(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+  pdf.object(infoId, "<< /Producer (Quick Utility Tools) >>");
+  return new Uint8Array(await pdf.finish(catalogId, infoId).arrayBuffer());
+}
+
 await section("PDF tools (real worker files on the pinned qpdf build)", async () => {
   const engine = await cachedEngine();
   const plain = await samplePdf();
@@ -343,6 +363,87 @@ await section("PDF tools (real worker files on the pinned qpdf build)", async ()
   check("size reducer asks for a password", r.needsPassword === true);
   r = await reducer.run({ bytes: buf(user), password, preset: "lossless" });
   check("size reducer keeps the password", r.ok && inspectPdf(q, new Uint8Array(r.bytes), password)?.encrypted === true);
+
+  r = await remover.run({ file: new Blob([plain]), password: "" });
+  check("workers accept a File instead of bytes", r.ok && inspectPdf(q, new Uint8Array(r.bytes))?.encrypted === false);
+
+  let repeated = 0;
+  for (let k = 0; k < 300; k++) {
+    const read = await metadata.run({ op: "read", bytes: buf(plain), password: "" });
+    if (read.ok && read.fields["/Title"] === "Sample") repeated++;
+  }
+  check("300 jobs in a row on one worker all succeed", repeated === 300, `${repeated} of 300`);
+
+  const long = await longPdf(300);
+  const every = Array.from({ length: 300 }, (_, i) => [{ file: 0, range: String(i + 1) }]);
+  r = await mergeSplit.run({ op: "build", files: [{ bytes: buf(long), password: "" }], outputs: every, split: 1 });
+  const isPdf = (b) => new TextDecoder().decode(new Uint8Array(b).subarray(0, 5)) === "%PDF-";
+  check("split every page of a 300-page PDF", r.ok && r.results.length === 300 && r.results.every(isPdf), r.ok ? String(r.results.length) : JSON.stringify(r));
+  const pageOf = (b) => inspectPdf(q, new Uint8Array(b))?.pages.length;
+  check("split pages come out one page each, in order", r.ok && pageOf(r.results[0]) === 1 && pageOf(r.results[299]) === 1 && r.results[0].byteLength > 0);
+  const chunks = [];
+  for (let a = 1; a <= 300; a += 7) chunks.push([{ file: 0, range: `${a}-${Math.min(a + 6, 300)}` }]);
+  r = await mergeSplit.run({ op: "build", files: [{ bytes: buf(long), password: "" }], outputs: chunks, split: 7 });
+  check("split into 7-page files", r.ok && r.results.length === 43 && pageOf(r.results[0]) === 7 && pageOf(r.results[42]) === 6);
+  r = await mergeSplit.run({ op: "build", files: [{ bytes: buf(user), password }], outputs: [[{ file: 0, range: "1" }], [{ file: 0, range: "2" }], [{ file: 0, range: "3" }]], split: 1 });
+  check("split works on a password-protected PDF", r.ok && r.results.length === 3 && inspectPdf(q, new Uint8Array(r.results[2]))?.encrypted === false);
+  const many = Array.from({ length: 260 }, (_, i) => [{ file: 0, range: String((i % 300) + 1) }]);
+  r = await mergeSplit.run({ op: "build", files: [{ file: new Blob([long]), password: "" }], outputs: many });
+  check("260 separate page ranges in one job", r.ok && r.results.length === 260 && r.results.every(isPdf), r.ok ? String(r.results.length) : JSON.stringify(r));
+
+  const { readMetadata, stripMetadata } = await importModule("tools/image-metadata/metadata.js");
+  const bare = stripMetadata(fixture("exif.jpg"), { keepOrientation: false }).bytes;
+  check("fixture JPEG has no orientation left", readMetadata(bare).orientation === 1);
+  const withProfile = (space) => {
+    const icc = new Uint8Array(132);
+    new DataView(icc.buffer).setUint32(0, 132);
+    icc.set(ascii(space), 16);
+    icc.set(ascii("acsp"), 36);
+    const seg = (seq, data) => {
+      const len = 2 + 14 + data.length;
+      return Uint8Array.from([0xff, 0xe2, len >> 8, len & 255, ...ascii("ICC_PROFILE\0"), seq, 2, ...data]);
+    };
+    return new Uint8Array([...bare.subarray(0, 2), ...seg(2, icc.subarray(60)), ...seg(1, icc.subarray(0, 60)), ...bare.subarray(2)]);
+  };
+  const posted = [];
+  globalThis.self = { postMessage: (m) => posted.push(m) };
+  await importModule("tools/images-to-pdf/convert-worker.js");
+  const toPdf = async (jpeg) => {
+    posted.length = 0;
+    await globalThis.self.onmessage({ data: { id: 1, files: [new Blob([jpeg])], settings: { page: "fit", margin: 0 } } });
+    const out = posted.find((m) => m.blob);
+    return out ? new Uint8Array(await out.blob.arrayBuffer()) : null;
+  };
+  const imageSpace = (pdfBytes) => {
+    q.FS.writeFile("/t/icc.pdf", pdfBytes);
+    if (q.callMain(["--json=2", "--json-key=qpdf", "--json-stream-data=none", "/t/icc.pdf", "/t/icc.json"]) !== 0) return null;
+    const objects = JSON.parse(new TextDecoder().decode(q.FS.readFile("/t/icc.json"))).qpdf[1];
+    const image = Object.values(objects).find((o) => o.stream?.dict["/Subtype"] === "/Image");
+    const cs = image?.stream.dict["/ColorSpace"];
+    if (!Array.isArray(cs)) return cs;
+    return { cs, profile: objects["obj:" + cs[1]]?.stream?.dict };
+  };
+  const kept = await toPdf(withProfile("RGB "));
+  const space = kept && imageSpace(kept);
+  q.FS.writeFile("/t/icc.pdf", kept || new Uint8Array());
+  check("Images to PDF keeps a JPEG color profile", space?.cs?.[0] === "/ICCBased" && space.profile?.["/N"] === 3 && space.profile?.["/Alternate"] === "/DeviceRGB", JSON.stringify(space));
+  check("Images to PDF output with a profile passes qpdf --check", kept && q.callMain(["--check", "/t/icc.pdf"]) === 0);
+  const mismatched = await toPdf(withProfile("GRAY"));
+  check("Images to PDF ignores a profile that doesn't match the image", mismatched && imageSpace(mismatched) === "/DeviceRGB");
+  delete globalThis.self;
+});
+
+await section("ZIP from files on disk", async () => {
+  const { crc32, crc32Async, buildZip } = await importModule("assets/js/zip.js");
+  const big = new Uint8Array(20 * 1024 * 1024 + 123);
+  for (let i = 0; i < big.length; i += 997) big[i] = i & 255;
+  check("chunked crc32 matches", (await crc32Async(big)) === crc32(big) && (await crc32Async(new Blob([big]))) === crc32(big));
+  const zip = new Uint8Array(await (await buildZip([{ name: "a.txt", blob: new Blob([ascii("hello")]) }, { name: "b.txt", bytes: ascii("world") }])).arrayBuffer());
+  const view = new DataView(zip.buffer);
+  const end = zip.length - 22;
+  check("ZIP from blobs lists both files", view.getUint32(end, true) === 0x06054b50 && view.getUint16(end + 10, true) === 2);
+  check("ZIP from blobs has the right CRC and size", view.getUint32(14, true) === crc32(ascii("hello")) && view.getUint32(18, true) === 5);
+  check("ZIP from blobs keeps the data", new TextDecoder().decode(zip.subarray(35, 40)) === "hello");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

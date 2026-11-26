@@ -9,11 +9,12 @@ function encryptArgs(password, ownerPassword, permissions = {}) {
 }
 
 self.onmessage = async (e) => {
-  const { id, op, bytes, password, ownerPassword, permissions } = e.data;
+  const { id, op, password, ownerPassword, permissions } = e.data;
   try {
+    const input = await qpdfInput(e.data);
     const q = await loadQpdf();
     qpdfClearJob(q);
-    q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
+    q.FS.writeFile("/job/in.pdf", input);
     const probe = qpdfExec(q, ["--requires-password", "/job/in.pdf"]);
     if (probe === 0 || probe === 3 || qpdfPasswordProblem()) {
       qpdfClearJob(q);

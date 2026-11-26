@@ -20,9 +20,19 @@ function lazy(load) {
 
 const loadJpeg = lazy(() => import(JPEG + "encode.js"));
 
+const SIMD_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+
+function hasSimd() {
+  try {
+    return WebAssembly.validate(SIMD_PROBE);
+  } catch {
+    return false;
+  }
+}
+
 const loadWebp = lazy(async () => {
   const [{ default: factory }, { initEmscriptenModule }, { defaultOptions }] = await Promise.all([
-    import(WEBP + "codec/enc/webp_enc.js"),
+    import(WEBP + (hasSimd() ? "codec/enc/webp_enc_simd.js" : "codec/enc/webp_enc.js")),
     import(WEBP + "utils.js"),
     import(WEBP + "meta.js"),
   ]);
@@ -182,17 +192,26 @@ export async function encodePng(imageData, colors) {
 export async function decodeHeic(bytes) {
   const libheif = await loadLibheif();
   const decoder = new libheif.HeifDecoder();
-  const [image] = decoder.decode(new Uint8Array(bytes));
-  if (!image) throw new Error("No image found in HEIC file");
-  const width = image.get_width();
-  const height = image.get_height();
-  const data = await new Promise((resolve, reject) => {
-    image.display({ data: new Uint8ClampedArray(width * height * 4), width, height }, (d) =>
-      d ? resolve(d.data) : reject(new Error("HEIC decoding failed")),
-    );
-  });
-  image.free?.();
-  return new ImageData(data, width, height);
+  let images = [];
+  try {
+    images = decoder.decode(new Uint8Array(bytes));
+    const image = images[0];
+    if (!image) throw new Error("No image found in HEIC file");
+    const width = image.get_width();
+    const height = image.get_height();
+    const data = await new Promise((resolve, reject) => {
+      image.display({ data: new Uint8ClampedArray(width * height * 4), width, height }, (d) =>
+        d ? resolve(d.data) : reject(new Error("HEIC decoding failed")),
+      );
+    });
+    return new ImageData(data, width, height);
+  } finally {
+    for (const image of images) image.free?.();
+    if (decoder.decoder && libheif.heif_context_free) {
+      libheif.heif_context_free(decoder.decoder);
+      decoder.decoder = null;
+    }
+  }
 }
 
 export const MAX_PIXELS = 16777216;

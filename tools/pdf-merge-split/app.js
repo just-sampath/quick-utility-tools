@@ -9,7 +9,7 @@ import {
   initPasswordToggles,
   moveItem,
 } from "../../assets/js/common.js";
-import { makeZip } from "../../assets/js/zip.js";
+import { buildZip } from "../../assets/js/zip.js";
 import { isPdfFile, looksLikePdf } from "../../core/pdf/files.js";
 import { ENGINE_CRASHED, ENGINE_FAILED, REPAIR_HINT, damaged } from "../../core/pdf/messages.js";
 
@@ -110,9 +110,9 @@ function setItemView(item) {
   li.classList.toggle("is-error", item.state === "error" || item.state === "password");
   form.hidden = isUnused(item) || item.state !== "password";
   if (item.state === "checking") {
-    size.textContent = `${formatBytes(item.bytes.byteLength)}, checking…`;
+    size.textContent = `${formatBytes(item.file.size)}, checking…`;
   } else if (item.state === "ready") {
-    size.textContent = `${formatBytes(item.bytes.byteLength)}, ${item.pages} ${item.pages === 1 ? "page" : "pages"}`;
+    size.textContent = `${formatBytes(item.file.size)}, ${item.pages} ${item.pages === 1 ? "page" : "pages"}`;
   } else if (item.state === "password") {
     size.textContent = item.wrong ? "Incorrect password. Try again." : "Password required to open this PDF";
   } else {
@@ -178,7 +178,7 @@ async function inspect(item, password) {
   updateControls();
   let r;
   try {
-    r = await runner.run({ op: "inspect", bytes: item.bytes, password });
+    r = await runner.run({ op: "inspect", file: item.file, password });
   } catch {
     if (!items.includes(item)) return;
     item.state = "error";
@@ -207,9 +207,9 @@ async function inspect(item, password) {
   if (item.state === "password" && !isUnused(item)) item.el.querySelector(".pms-password input").focus();
 }
 
-function createItem(file, buf) {
+function createItem(file) {
   const el = itemTemplate.content.firstElementChild.cloneNode(true);
-  const item = { id: ++nextItemId, name: file.name, bytes: buf, pages: 0, password: "", state: "checking", wrong: false, error: "", el };
+  const item = { id: ++nextItemId, name: file.name, file, pages: 0, password: "", state: "checking", wrong: false, error: "", el };
   el.querySelector(".file-name").textContent = file.name;
   el.querySelector('[data-act="up"]').addEventListener("click", () => move(item, -1));
   el.querySelector('[data-act="down"]').addEventListener("click", () => move(item, 1));
@@ -250,12 +250,17 @@ async function addFiles(files) {
       rejected++;
       continue;
     }
-    const buf = await file.arrayBuffer();
-    if (!looksLikePdf(buf)) {
+    let head;
+    try {
+      head = await file.slice(0, 1024).arrayBuffer();
+    } catch {
+      head = null;
+    }
+    if (!head || !looksLikePdf(head)) {
       rejected++;
       continue;
     }
-    accepted.push(createItem(file, buf));
+    accepted.push(createItem(file));
   }
   if (rejected) {
     showMsg("error", rejected === 1 ? "One file was skipped because it isn't a valid PDF." : `${rejected} files were skipped because they aren't valid PDFs.`);
@@ -281,7 +286,7 @@ function plan() {
   if (m === "merge") {
     return {
       mode: m,
-      files: items.map((it) => ({ bytes: it.bytes, password: it.password })),
+      files: items.map((it) => ({ file: it.file, password: it.password })),
       outputs: [items.map((it, i) => ({ file: i, range: "1-z" }))],
       names: ["merged.pdf"],
       pages: items.reduce((n, it) => n + it.pages, 0),
@@ -291,7 +296,7 @@ function plan() {
   }
   const item = items[0];
   const base = stripExt(item.name);
-  const files = [{ bytes: item.bytes, password: item.password }];
+  const files = [{ file: item.file, password: item.password }];
   if (m === "extract") {
     const parsed = parseRanges(rangeInput.value, item.pages);
     if (parsed.error) return { error: parsed.error, focus: rangeInput };
@@ -308,13 +313,16 @@ function plan() {
     };
   }
   let list;
+  let split = 0;
   if (splitSelect.value === "every") {
     list = Array.from({ length: item.pages }, (_, i) => [i + 1, i + 1]);
+    split = 1;
   } else if (splitSelect.value === "chunks") {
     const n = Number(chunkInput.value);
     if (!Number.isInteger(n) || n < 1) return { error: "Enter a whole number of pages per file, 1 or more.", focus: chunkInput };
     list = [];
     for (let a = 1; a <= item.pages; a += n) list.push([a, Math.min(a + n - 1, item.pages)]);
+    split = n;
   } else {
     const parsed = parseRanges(rangeInput.value, item.pages);
     if (parsed.error) return { error: parsed.error, focus: rangeInput };
@@ -331,6 +339,7 @@ function plan() {
     mode: m,
     files,
     outputs: list.map((r) => [{ file: 0, range: rangeText(r) }]),
+    split,
     names,
     pages: list.reduce((n, [a, b]) => n + Math.abs(b - a) + 1, 0),
     title: list.length === 1 ? "Split PDF ready" : `${list.length} files ready`,
@@ -352,7 +361,7 @@ async function run() {
   showMsg("info", "Working…", true);
   let r;
   try {
-    r = await runner.run({ op: "build", files: p.files, outputs: p.outputs }, [], (fraction) => {
+    r = await runner.run({ op: "build", files: p.files, outputs: p.outputs, split: p.split || 0 }, [], (fraction) => {
       if (token === runToken && p.outputs.length > 1) showMsg("info", `Working… ${Math.round(fraction * 100)}%`, true);
     });
   } catch {
@@ -363,9 +372,9 @@ async function run() {
     return;
   }
   if (token !== runToken) return;
-  working = false;
-  renderList();
   if (!r.ok) {
+    working = false;
+    renderList();
     showMsg(
       "error",
       r.fatal
@@ -376,10 +385,13 @@ async function run() {
     );
     return;
   }
-  finish(p, r.results);
+  await finish(p, r.results, token);
+  if (token !== runToken) return;
+  working = false;
+  renderList();
 }
 
-function finish(p, results) {
+async function finish(p, results, token) {
   const total = results.reduce((n, b) => n + b.byteLength, 0);
   let blob;
   if (results.length === 1) {
@@ -387,7 +399,9 @@ function finish(p, results) {
     downloadBtn.download = p.names[0];
     downloadBtn.textContent = "Download PDF";
   } else {
-    blob = makeZip(results.map((bytes, i) => ({ name: p.names[i], bytes })));
+    showMsg("info", "Preparing ZIP…", true);
+    blob = await buildZip(results.map((bytes, i) => ({ name: p.names[i], bytes })));
+    if (token !== runToken) return;
     downloadBtn.download = p.zipName;
     downloadBtn.textContent = "Download all as ZIP";
   }

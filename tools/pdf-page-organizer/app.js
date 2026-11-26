@@ -23,6 +23,7 @@ const ICON = {
 
 let pages = [];
 let dragging = null;
+let thumbUrls = [];
 
 const tool = createPdfFileTool({
   worker: "./organize-worker.js",
@@ -33,6 +34,8 @@ const tool = createPdfFileTool({
   },
   onFile: load,
   onReset: () => {
+    for (const url of thumbUrls) URL.revokeObjectURL(url);
+    thumbUrls = [];
     pages = [];
     grid.replaceChildren();
     organizer.hidden = true;
@@ -51,26 +54,18 @@ function isDirty() {
   return pages.some((p, i) => p.orig !== i + 1 || p.turn !== 0 || p.deleted);
 }
 
-function toDataUrl(data) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(new Blob([data], { type: "image/jpeg" }));
-  });
-}
-
 async function load() {
+  const file = tool.file;
   const r = await tool.run({ op: "inspect" }, tool.password ? "Unlocking…" : "Reading your PDF…");
-  if (!r) return;
+  if (!r || tool.file !== file) return;
   if (!r.ok) {
     tool.fail(r);
     return;
   }
-  const bytes = tool.bytes;
+  for (const url of thumbUrls) URL.revokeObjectURL(url);
   const urls = {};
-  await Promise.all(Object.entries(r.thumbs).map(async ([key, data]) => (urls[key] = await toDataUrl(data))));
-  if (tool.bytes !== bytes) return;
+  for (const [key, data] of Object.entries(r.thumbs)) urls[key] = URL.createObjectURL(new Blob([data], { type: "image/jpeg" }));
+  thumbUrls = Object.values(urls);
   showOrganizer(r.pages, urls);
 }
 
@@ -122,6 +117,8 @@ function buildCard(page) {
     img.className = "po-img";
     img.alt = "";
     img.draggable = false;
+    img.loading = "lazy";
+    img.decoding = "async";
     img.addEventListener("error", () => img.replaceWith(paper(page)));
     img.src = page.thumb;
     face.append(img);
@@ -214,7 +211,6 @@ function turn(page, by) {
 function layout() {
   tool.clearResult();
   let position = 0;
-  const frag = document.createDocumentFragment();
   pages.forEach((page, i) => {
     const li = page.el;
     li.classList.toggle("po-deleted", page.deleted);
@@ -234,14 +230,16 @@ function layout() {
     page.btns.later.disabled = page.deleted || i === pages.length - 1;
     page.btns.ccw.disabled = page.deleted;
     page.btns.cw.disabled = page.deleted;
-    const del = page.btns.del;
-    const label = page.deleted ? "Restore page" : "Delete page";
-    del.title = label;
-    del.setAttribute("aria-label", label);
-    del.innerHTML = page.deleted ? ICON.undo : ICON.trash;
-    frag.append(li);
+    if (page.shownDeleted !== page.deleted) {
+      const del = page.btns.del;
+      const label = page.deleted ? "Restore page" : "Delete page";
+      del.title = label;
+      del.setAttribute("aria-label", label);
+      del.innerHTML = page.deleted ? ICON.undo : ICON.trash;
+      page.shownDeleted = page.deleted;
+    }
+    if (grid.children[i] !== li) grid.insertBefore(li, grid.children[i] || null);
   });
-  grid.replaceChildren(frag);
   const kept = keptCount();
   summary.textContent = `${kept} of ${pages.length} pages kept`;
   saveBtn.disabled = kept === 0;

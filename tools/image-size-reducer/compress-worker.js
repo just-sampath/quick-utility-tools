@@ -80,8 +80,10 @@ async function compress(file, kind, settings, progress) {
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
+  const imageData = ctx.getImageData(0, 0, width, height);
+  canvas.width = canvas.height = 0;
   progress("Compressing…");
-  let out = await encode(format, ctx.getImageData(0, 0, width, height), settings);
+  let out = await encode(format, imageData, settings);
   const dpiSkipped = settings.dpi > 0 && format === "webp";
   const dpiWanted = settings.dpi > 0 && !dpiSkipped;
   if (dpiWanted && format === "jpeg") out = setJpegDpi(out, settings.dpi);

@@ -65,17 +65,21 @@ async function resizeImage(raw, target, opts) {
   const scale = targetScale(opts, bitmap.width, bitmap.height);
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
-  const ctx = new OffscreenCanvas(width, height).getContext("2d", { willReadFrequently: true });
+  const canvas = new OffscreenCanvas(width, height);
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
-  const bytes = await codecs.encodeJpeg(ctx.getImageData(0, 0, width, height), opts.quality, target.gray);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  canvas.width = canvas.height = 0;
+  const bytes = await codecs.encodeJpeg(imageData, opts.quality, target.gray);
   return { bytes: new Uint8Array(bytes), width, height };
 }
 
 async function downsample(q, pw, src, dest, opts, progress) {
   if (!succeeded(qpdfExec(q, [...pw, "--json=2", "--json-key=qpdf", "--json-stream-data=none", src, "/job/dicts.json"]))) return { updated: 0, resized: 0 };
   const [header, objects] = readJson(q, "/job/dicts.json").qpdf;
+  q.FS.unlink("/job/dicts.json");
   const targets = candidates(objects, opts);
   if (!targets.length) return { updated: 0, resized: 0 };
 
@@ -83,6 +87,7 @@ async function downsample(q, pw, src, dest, opts, progress) {
   for (const t of targets) exportArgs.push(`--json-object=${t.num[1]},${t.num[2]}`);
   if (!succeeded(qpdfExec(q, [...exportArgs, src, "/job/data.json"]))) return { updated: 0, resized: 0 };
   const exported = readJson(q, "/job/data.json").qpdf[1];
+  q.FS.unlink("/job/data.json");
 
   progress("Loading the image engine…");
   codecs ??= await import("../../assets/js/codecs.js");
@@ -108,42 +113,51 @@ async function downsample(q, pw, src, dest, opts, progress) {
   }
   if (!updated) return { updated: 0, resized: 0 };
   q.FS.writeFile("/job/update.json", JSON.stringify({ qpdf: [header, update] }));
-  return succeeded(qpdfExec(q, [...pw, src, "--update-from-json=/job/update.json", dest])) ? { updated, resized } : { updated: 0, resized: 0 };
+  const done = succeeded(qpdfExec(q, [...pw, src, "--update-from-json=/job/update.json", dest]));
+  for (const t of Object.values(update)) q.FS.unlink(t.stream.datafile);
+  q.FS.unlink("/job/update.json");
+  return done ? { updated, resized } : { updated: 0, resized: 0 };
 }
 
-async function compress(q, bytes, password, opts, progress) {
+async function compress(q, input, password, opts, progress) {
   const pw = password ? ["--password=" + password] : [];
   qpdfClearJob(q);
-  q.FS.writeFile("/job/in.pdf", new Uint8Array(bytes));
+  q.FS.writeFile("/job/in.pdf", input);
   let src = "/job/in.pdf";
   let resized = 0;
   if (opts) {
     progress("Converting images…");
     const code = qpdfExec(q, [...pw, "--optimize-images", "--jpeg-quality=92", src, "/job/a.pdf"]);
     if (!succeeded(code)) return { code, password: qpdfPasswordProblem() };
+    q.FS.unlink(src);
     src = "/job/a.pdf";
     const r = await downsample(q, pw, src, "/job/b.pdf", opts, progress);
     resized = r.resized;
-    if (r.updated) src = "/job/b.pdf";
+    if (r.updated) {
+      q.FS.unlink(src);
+      src = "/job/b.pdf";
+    }
   }
   progress("Compressing…");
   const args = [...pw, ...STRUCTURE];
   if (opts) args.push("--optimize-images", "--jpeg-quality=" + opts.quality);
   const code = qpdfExec(q, [...args, src, "/job/out.pdf"]);
   if (!succeeded(code)) return { code, password: qpdfPasswordProblem() };
+  q.FS.unlink(src);
   return { code, out: q.FS.readFile("/job/out.pdf"), resized };
 }
 
 self.onmessage = async (e) => {
-  const { id, bytes, password, preset, unit, size, quality } = e.data;
+  const { id, password, preset, unit, size, quality } = e.data;
   const opts = preset === "lossless" ? null : {
     unit: unit === "percent" ? "percent" : "pixels",
     size: Math.max(1, Number(size) || 2000),
     quality: Math.min(100, Math.max(1, Math.round(Number(quality)) || 75)),
   };
   try {
+    const input = await qpdfInput(e.data);
     const q = await loadQpdf();
-    const r = await compress(q, bytes, password, opts, (progress) => self.postMessage({ id, progress }));
+    const r = await compress(q, input, password, opts, (progress) => self.postMessage({ id, progress }));
     qpdfClearJob(q);
     if (r.out) {
       self.postMessage({ id, ok: true, bytes: r.out, resized: r.resized }, [r.out.buffer]);

@@ -157,7 +157,7 @@ async function produce(op, title, suffix, text, extra) {
   syncNote();
   syncButtons();
   resultTitle.textContent = title;
-  const grew = r.bytes.byteLength > tool.bytes.byteLength;
+  const grew = r.bytes.byteLength > tool.size;
   sizeNote.hidden = !grew;
   sizeNote.textContent = grew ? "The new file is larger than the original because the PDF was rewritten." : "";
   tool.showResult(r.bytes, suffix);
