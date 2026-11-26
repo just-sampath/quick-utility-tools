@@ -19,7 +19,7 @@ const statImagesWrap = document.getElementById("statImagesWrap");
 const statImages = document.getElementById("statImages");
 
 const HINTS = {
-  lossless: "Cleans up file structure only — images and quality stay untouched.",
+  lossless: "Cleans up the file structure only. Images aren't changed.",
   balanced: "Recompresses images and caps large ones at 2000 px.",
   small: "Stronger compression and caps large images at 1300 px.",
   custom: "Set your own image size and quality below.",

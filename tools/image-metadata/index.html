@@ -85,10 +85,10 @@
         </label>
         <p class="hint">Kept by default so colors stay accurate.</p>
 
-        <p class="hint">Cuts metadata out losslessly without re-encoding.</p>
+        <p class="hint">The image itself isn't re-encoded.</p>
         <details class="info-disclosure">
           <summary>Details &amp; limits</summary>
-          <p>All metadata, including GPS location, is read and stripped locally in your browser without touching image pixels. Need smaller files too? <a href="../image-size-reducer/index.html">Image Size Reducer</a> removes metadata and re-encodes the image.</p>
+          <p>Metadata, including GPS location, is read and removed in your browser and the pixels aren't changed. For smaller files, use <a href="../image-size-reducer/index.html">Image Size Reducer</a>, which also removes metadata but re-encodes the image.</p>
         </details>
 
         <div class="actions">
@@ -132,7 +132,7 @@
   </template>
 
   <footer class="site-footer">
-    <div class="container">© Quick Utility Tools · 100% client-side — files never leave your device</div>
+    <div class="container">© Quick Utility Tools · Files never leave your device</div>
   </footer>
 
   <script type="module" src="./app.js"></script>
