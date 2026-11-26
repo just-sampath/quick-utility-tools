@@ -26,6 +26,12 @@ assets/js/common.js                 shared ES module helpers (theme, job runner,
 assets/js/qpdf.js                   shared qpdf-wasm loader for workers (classic script, loaded via importScripts)
 assets/js/codecs.js                 on-demand image codecs plus shared image helpers (ES module, used by workers and pages)
 assets/js/zip.js                    store-only ZIP writer, crc32, and bindZipButton for "Download all as ZIP"
+core/pdf/single-file.js             page logic shared by the one-PDF tools (pick, password, run, result, reset)
+core/pdf/files.js                   isPdfFile, looksLikePdf
+core/pdf/messages.js                engine, password and damaged-file messages shared by every PDF page
+core/image/file-list.js             page logic shared by the image list tools (list, batch, summary, ZIP)
+core/image/files.js                 sniffImages: accept JPG/PNG/WebP/HEIC/AVIF, skip the rest with one message
+core/image/messages.js              decode errors and wording shared by the image pages
 tests/check.mjs                     dependency-free checks (see Commands)
 tests/fixtures/                     tiny JPG/PNG/WebP files with EXIF, GPS and orientation 6
 tools/<tool-name>/                  one folder per tool, self-contained:
@@ -41,6 +47,11 @@ tools/<tool-name>/                  one folder per tool, self-contained:
 - Image codecs live in `codecs.js`: `encodeJpeg` (MozJPEG), `encodeWebp`, `encodePng` (image-q palette + own dither + oxipng), `decodeHeic` (libheif). Each loads on first use and retries the load after a failure. `loadQpdf()` also forgets a failed load, so the next job tries again.
 - Shared image helpers also live in `codecs.js` and load nothing from the CDN until a codec is called: `sniffFile`/`sniffImage` (format, animation and stored DPI from the first bytes), `decodeImage` (browser decode, libheif fallback for HEIC, `JobError` codes `decode`/`avif`/`heic`), `capSize` and `MAX_PIXELS`. Pages import them for sniffing, workers for decoding. Reuse them instead of copying.
 - "Download all as ZIP" goes through `bindZipButton(button, zipName, getFiles, onError)` from `zip.js`. It de-duplicates names, builds the ZIP on first click, and returns `reset()`, which a page calls whenever its results change. `crc32` is exported from `zip.js` too.
+- `core/<type>/` holds page logic that several tools of one type share; `assets/js/` keeps the cross-cutting helpers and the engine loaders. A tool's `app.js` keeps only what is specific to it. When two tools of a type need the same page logic, put it in `core/<type>/` instead of copying it.
+  - `createPdfFileTool({ worker, password, onFile, onUnlock, onReset, onBusy })` from `core/pdf/single-file.js` runs `pdf-password-remover`, `pdf-password-adder`, `pdf-size-reducer`, `pdf-page-organizer` and `pdf-metadata-editor`. It owns the dropzone, file row, PDF checks, worker, unlock form, result block and reset. `run(payload, text)` sends `{ bytes, password, ...payload }` (payload keys win) and returns the reply, or `null` after a crash; `fail(reply, damagedText)` shows the standard engine, password or damaged message; `showResult(bytes, suffix)` fills the download link and Original/new sizes. Pass `password: { form, input, button }` when the tool unlocks protected PDFs; the tool then keeps the password for later jobs and forgets it after a wrong one.
+  - `createFileList({ action, label, zipName, prepare, idleText, worker, ... })` from `core/image/file-list.js` runs `image-converter`, `image-size-reducer` and `image-metadata`. It owns the item list, Remove buttons, busy state, batch run (`runWorkers` for module workers, `runEach` for in-page work), summary sizes and ZIP button. Hooks: `canRun`, `isError`, `setup`, `summarize`, `onChange` (after every list change), `onClear`.
+  - Both read fixed element IDs: `dropzone`, `fileInput`, `msg`, `clearBtn`, `result`, `statBefore`, `statAfter`, plus `fileRow`, `fileName`, `fileSize`, `downloadBtn`, `anotherBtn` for PDF pages, and `fileList`, `options`, `addBtn`, `zipBtn`, `itemTemplate` for image pages. An image item template needs `.file-meta`, `.file-name`, `.file-size`, `.saving`, an `<a>` and a `[data-remove]` button; `.file-flag` is optional. `tests/check.mjs` follows each page's imports into `core/` and fails if an ID or template part is missing.
+  - `pdf-merge-split`, `images-to-pdf` and `image-crop-rotate` have different page shapes, so they keep their own page logic and use only `core/pdf/files.js`, `core/pdf/messages.js`, `core/image/messages.js` and `moveItem` from `common.js`.
 - Version pins live in exactly two files: `QPDF_BASE` in `assets/js/qpdf.js` and the constants at the top of `assets/js/codecs.js`.
 - Engines load lazily inside workers, so the home page and an idle tool page download nothing from the CDN.
 - Theme system: `<html data-theme>` attribute set by an inline snippet in each page's `<head>` (prevents flash), toggled via button, persisted in `localStorage.theme`. Auto dark/light respects `prefers-color-scheme` when no stored preference exists.
@@ -83,7 +94,7 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 ## Gotchas learned the hard way
 
 - A CSS rule setting `display: flex` beats the UA's `[hidden]` attribute. That is why `[hidden] { display: none !important }` exists globally — do not remove it.
-- qpdf/Emscripten exit code 2 conflates "wrong password" with "corrupt file". The wasm glue ignores `printErr` and writes errors through `console.error`, so `qpdf.js` captures that before loading the glue and `qpdfPasswordProblem()` checks the last call's stderr for "password". The `%PDF-` magic-byte check (`looksLikePdf`, first 1024 bytes) still filters junk upstream. Keep both.
+- qpdf/Emscripten exit code 2 conflates "wrong password" with "corrupt file". The wasm glue ignores `printErr` and writes errors through `console.error`, so `qpdf.js` captures that before loading the glue and `qpdfPasswordProblem()` checks the last call's stderr for "password". The `%PDF-` magic-byte check (`looksLikePdf` in `core/pdf/files.js`, first 1024 bytes) still filters junk upstream. Keep both.
 - `callMain` exit codes: 0 = success, 2 = invalid password or unreadable file, 3 = success with warnings. The password remover and password adder accept only 0. The size reducer, merge/split, page organizer and metadata editor accept 0 and 3 because real-world PDFs often produce warnings.
 - Emscripten MEMFS persists across `callMain()` invocations. That is why jobs use `/job` and `qpdfClearJob`.
 - Owner-password-only PDFs (permission restrictions) open with NO password — probe without one first, show the password field only after a failed empty attempt. qpdf keeps the input's encryption on output unless `--decrypt` is passed.
@@ -102,7 +113,7 @@ Every page has a `<meta http-equiv="Content-Security-Policy">` right after the v
 ## Adding a new tool
 
 1. Create `tools/<tool-name>/index.html` copying the existing tool page structure (CSP meta, header, footer, theme snippet, panel layout). Trim the CSP if the tool has no engine-loading worker.
-2. Add `app.js`; add a worker file only if processing can block the main thread, and drive it with `createJobRunner`.
+2. Add `app.js`; add a worker file only if processing can block the main thread, and drive it with `createJobRunner`. A tool that takes one PDF builds on `createPdfFileTool`, and an image tool with a file list builds on `createFileList`; keep the standard element IDs so they work unchanged.
 3. Reuse `assets/css/style.css` classes — add new component styles there, not inline.
 4. Add a card to the grid in the root `index.html`, in the same order as the README: PDF tools first, then image tools. Unbuilt tools get class `card-soon` plus badge `badge-soon`. `<span class="badge badge-new">New</span>` can mark a just-launched tool; take it off once it is no longer new.
 5. Add a section to `README.md` under PDF tools or Image tools, and a line to its Layout block. If the tool uses qpdf or a codec, add its cases to the bump matrix under Boundaries. If it has a qpdf worker, add its cases to `tests/check.mjs`.

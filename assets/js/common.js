@@ -61,8 +61,12 @@ export function bindDropzone(dz, input, onFiles) {
   });
 }
 
-export function looksLikePdf(buf) {
-  return new TextDecoder().decode(new Uint8Array(buf, 0, Math.min(1024, buf.byteLength))).includes("%PDF-");
+export function moveItem(list, item, delta) {
+  const i = list.indexOf(item);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= list.length) return false;
+  [list[i], list[j]] = [list[j], list[i]];
+  return true;
 }
 
 export function downloadName(name, suffix, ext) {

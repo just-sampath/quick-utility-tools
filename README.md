@@ -132,7 +132,7 @@ Then open http://localhost:8000. Opening the files directly (`file://`) won't wo
 node tests/check.mjs
 ```
 
-Needs Node 18 or later and nothing else. The script checks that every script parses, that every page's Content-Security-Policy matches its inline scripts and engine use, that CDN packages are pinned, and that the shared ZIP, image-sniffing and image-metadata code behaves. It then runs the real PDF worker files against the pinned qpdf build, which it downloads once into the system temp folder. Add `--offline` to use only that cached copy. The image codec workers need a browser canvas, so test them in a browser.
+Needs Node 18 or later and nothing else. The script checks that every script parses, that every page's Content-Security-Policy matches its inline scripts and engine use, that each page has the elements its scripts and the shared `core/` modules look up, that CDN packages are pinned, and that the shared ZIP, image-sniffing and image-metadata code behaves. It then runs the real PDF worker files against the pinned qpdf build, which it downloads once into the system temp folder. Add `--offline` to use only that cached copy. The image codec workers need a browser canvas, so test them in a browser.
 
 ## Layout
 
@@ -144,6 +144,8 @@ assets/js/common.js            theme toggle, worker job runner, file and status 
 assets/js/qpdf.js              shared qpdf-wasm loader for PDF workers
 assets/js/codecs.js            on-demand image codecs (MozJPEG, WebP, oxipng, image-q, libheif), format sniffing and decode helpers
 assets/js/zip.js               small ZIP writer, CRC32 and the "Download all as ZIP" button
+core/pdf/                      page logic shared by the PDF tools: one-file flow, PDF checks, messages
+core/image/                    page logic shared by the image tools: file list and batch, format checks, messages
 tools/pdf-password-remover/    tool page, UI script and decrypt worker
 tools/pdf-password-adder/      tool page, UI script and encrypt worker
 tools/pdf-size-reducer/        tool page, UI script and compress worker
@@ -159,7 +161,7 @@ tests/check.mjs                dependency-free checks (node tests/check.mjs)
 tests/fixtures/                small JPG, PNG and WebP files carrying EXIF and GPS data
 ```
 
-Each tool lives in its own folder under `tools/`, gets a card in `index.html` and a section in this README.
+Each tool lives in its own folder under `tools/`, gets a card in `index.html` and a section in this README. Page logic that several tools of one type share lives in `core/pdf/` or `core/image/`.
 
 ## License
 
