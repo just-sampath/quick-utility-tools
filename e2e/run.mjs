@@ -125,6 +125,21 @@ function pngExifTags(bytes) {
   return [];
 }
 
+// Tag numbers in a WebP's EXIF chunk, or [] when it has none.
+function webpExifTags(bytes) {
+  const b = Buffer.from(bytes);
+  let i = 12;
+  while (i + 8 < b.length) {
+    const len = b.readUInt32LE(i + 4);
+    if (b.subarray(i, i + 4).toString("latin1") === "EXIF") {
+      const start = b.subarray(i + 8, i + 14).toString("latin1") === "Exif\0\0" ? i + 14 : i + 8;
+      return tiffTags(b, start);
+    }
+    i += 8 + len + (len % 2);
+  }
+  return [];
+}
+
 // Tag numbers in a JPEG's EXIF IFD0, or [] when it has no EXIF.
 function jpegExifTags(bytes) {
   const b = Buffer.from(bytes);
@@ -562,16 +577,14 @@ for (const keep of [true, false]) {
     for (let i = 0; i < 3; i++) {
       const { bytes, name } = await download(page, links.nth(i), `stripped-${keep ? "keep" : "drop"}-${files[i]}`);
       const type = files[i].split(".")[1];
-      if (type === "jpg" || (type === "png" && keep)) {
-        const tags = type === "jpg" ? jpegExifTags(bytes) : pngExifTags(bytes);
-        if (type === "png") expect(!/(tEXt|iTXt|zTXt)/.test(Buffer.from(bytes).toString("latin1")), `${name} still has text chunks`);
-        const expected = keep ? "274" : "";
-        expect(tags.join(",") === expected, `${name} EXIF tags left: [${tags}], expected [${expected}]`);
-        out.push(`${name}: ${keep ? "only the orientation tag left" : "no EXIF left"}`);
-      } else {
-        expect(!hasImageMetadata(bytes, type), `${name} still has metadata`);
-        out.push(`${name}: clean`);
-      }
+      const tags = { jpg: jpegExifTags, png: pngExifTags, webp: webpExifTags }[type](bytes);
+      const expected = keep ? "274" : "";
+      expect(tags.join(",") === expected, `${name} EXIF tags left: [${tags}], expected [${expected}]`);
+      const raw = Buffer.from(bytes).toString("latin1");
+      if (type === "png") expect(!/(tEXt|iTXt|zTXt)/.test(raw), `${name} still has text chunks`);
+      if (type === "webp") expect(!raw.includes("XMP "), `${name} still has XMP`);
+      if (type === "jpg") expect(!raw.includes("http://ns.adobe.com/xap"), `${name} still has XMP`);
+      out.push(`${name}: ${keep ? "only the orientation tag left" : "no EXIF left"}`);
       const info = imageInfo(bytes);
       const src = imageInfo(await fs.readFile(R(files[i])));
       expect(info.width === src.width && info.height === src.height, `${name} pixel size changed`);
